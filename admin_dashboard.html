@@ -1,0 +1,2904 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ECertifPro Admin Dashboard - Complete Activation Key Management System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/date-fns@2.29.3/index.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6',
+                        secondary: '#1E40AF',
+                        accent: '#F59E0B',
+                        success: '#10B981',
+                        warning: '#F59E0B',
+                        danger: '#EF4444',
+                        dark: '#1F2937',
+                        'dark-light': '#374151'
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-50 font-sans antialiased" x-data="adminApp()">
+    <!-- Loading Overlay -->
+    <div x-show="loading" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+        <div class="bg-white p-6 rounded-lg shadow-xl">
+            <div class="flex items-center space-x-3">
+                <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                <span class="text-gray-700">Loading...</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Login Modal -->
+    <div x-show="!isAuthenticated" class="fixed inset-0 bg-gray-900 bg-opacity-75 z-40 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-8">
+            <div class="text-center mb-8">
+                <div class="mx-auto w-16 h-16 bg-primary rounded-full flex items-center justify-center mb-4">
+                    <i class="fas fa-key text-white text-2xl"></i>
+                </div>
+                <h2 class="text-3xl font-bold text-gray-900">ECertifPro Admin</h2>
+                <p class="text-gray-600 mt-2">Complete Activation Key Management System</p>
+            </div>
+
+            <form @submit.prevent="login()" class="space-y-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Username</label>
+                    <input 
+                        type="text" 
+                        x-model="loginForm.username" 
+                        required
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                        placeholder="admin"
+                    >
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                    <input 
+                        type="password" 
+                        x-model="loginForm.password" 
+                        required
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                        placeholder="••••••••"
+                    >
+                </div>
+
+                <div x-show="loginError" class="bg-red-50 border border-red-200 rounded-lg p-3">
+                    <p class="text-red-700 text-sm" x-text="loginError"></p>
+                </div>
+
+                <button 
+                    type="submit" 
+                    :disabled="loading"
+                    class="w-full bg-primary text-white py-3 px-4 rounded-lg hover:bg-secondary transition-colors disabled:opacity-50"
+                >
+                    <span x-show="!loading">Sign In</span>
+                    <span x-show="loading" class="flex items-center justify-center">
+                        <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        Signing in...
+                    </span>
+                </button>
+            </form>
+
+           
+        </div>
+    </div>
+
+    <!-- Main Dashboard -->
+    <div x-show="isAuthenticated" class="min-h-screen">
+        <!-- Header -->
+        <header class="bg-white shadow-sm border-b border-gray-200">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center h-16">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+                                <i class="fas fa-key text-white"></i>
+                            </div>
+                        </div>
+                        <h1 class="ml-3 text-xl font-semibold text-gray-900">ECertifPro Complete Admin Dashboard</h1>
+                    </div>
+                    
+                    <div class="flex items-center space-x-4">
+                        <div class="text-sm text-gray-600">
+                            API Status: 
+                            <span :class="apiStatus.success ? 'text-green-600' : 'text-red-600'" x-text="apiStatus.success ? 'Connected' : 'Disconnected'"></span>
+                        </div>
+                        <button 
+                            @click="logout()" 
+                            class="text-gray-600 hover:text-gray-900 transition-colors"
+                            title="Logout"
+                        >
+                            <i class="fas fa-sign-out-alt"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Navigation Tabs -->
+        <nav class="bg-white border-b border-gray-200">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex space-x-8 overflow-x-auto">
+                    <button 
+                        @click="activeTab = 'dashboard'" 
+                        :class="activeTab === 'dashboard' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700'"
+                        class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors"
+                    >
+                        <i class="fas fa-chart-dashboard mr-2"></i>Dashboard
+                    </button>
+                    <button 
+                        @click="activeTab = 'keys'" 
+                        :class="activeTab === 'keys' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700'"
+                        class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors"
+                    >
+                        <i class="fas fa-key mr-2"></i>Key Management
+                    </button>
+                    <button 
+                        @click="activeTab = 'activation'" 
+                        :class="activeTab === 'activation' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700'"
+                        class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors"
+                    >
+                        <i class="fas fa-unlock mr-2"></i>Key Activation
+                    </button>
+                    <button 
+                        @click="activeTab = 'customers'" 
+                        :class="activeTab === 'customers' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700'"
+                        class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors"
+                    >
+                        <i class="fas fa-users mr-2"></i>Customers
+                    </button>
+                    <button 
+                        @click="activeTab = 'products'" 
+                        :class="activeTab === 'products' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700'"
+                        class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors"
+                    >
+                        <i class="fas fa-box mr-2"></i>Products
+                    </button>
+                    <button 
+                        @click="activeTab = 'exports'" 
+                        :class="activeTab === 'exports' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700'"
+                        class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors"
+                    >
+                        <i class="fas fa-download mr-2"></i>Export Data
+                    </button>
+                    <button 
+                        @click="activeTab = 'docs'" 
+                        :class="activeTab === 'docs' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700'"
+                        class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors"
+                    >
+                        <i class="fas fa-book mr-2"></i>Documentation
+                    </button>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+            <!-- Advanced Dashboard Tab -->
+            <div x-show="activeTab === 'dashboard'" class="space-y-6">
+                <!-- Dashboard Controls -->
+                <div class="bg-white shadow rounded-lg">
+                    <div class="px-4 py-5 sm:p-6">
+                        <div class="flex flex-wrap items-center justify-between gap-4">
+                            <h2 class="text-xl font-semibold text-gray-900">Analytics Dashboard</h2>
+                            <div class="flex flex-wrap items-center gap-4">
+                                <div class="flex items-center space-x-2">
+                                    <label class="text-sm font-medium text-gray-700">Date Range:</label>
+                                    <select x-model="dashboardFilters.dateRange" @change="updateDashboardCharts()" class="border border-gray-300 rounded-md px-3 py-1 text-sm">
+                                        <option value="7">Last 7 days</option>
+                                        <option value="30">Last 30 days</option>
+                                        <option value="90">Last 3 months</option>
+                                        <option value="365">Last year</option>
+                                        <option value="all">All time</option>
+                                    </select>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <label class="text-sm font-medium text-gray-700">Key Type:</label>
+                                    <select x-model="dashboardFilters.keyType" @change="updateDashboardCharts()" class="border border-gray-300 rounded-md px-3 py-1 text-sm">
+                                        <option value="">All Types</option>
+                                        <template x-for="keyType in keyTypes" :key="keyType.name">
+                                            <option :value="keyType.name" x-text="keyType.name.toUpperCase()"></option>
+                                        </template>
+                                    </select>
+                                </div>
+                                <button @click="refreshDashboardData()" class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition-colors text-sm">
+                                    <i class="fas fa-refresh mr-2"></i>Refresh
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Enhanced Statistics Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
+                    <div class="bg-gradient-to-r from-blue-500 to-blue-600 overflow-hidden shadow rounded-lg text-white">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <i class="fas fa-key text-white text-2xl"></i>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-blue-100 truncate">Total Keys</dt>
+                                        <dd class="text-2xl font-bold text-white" x-text="statistics.total_keys || '0'"></dd>
+                                        <dd class="text-xs text-blue-100">
+                                            <span :class="keyGrowth >= 0 ? 'text-green-300' : 'text-red-300'">
+                                                <i :class="keyGrowth >= 0 ? 'fas fa-arrow-up' : 'fas fa-arrow-down'"></i>
+                                                <span x-text="Math.abs(keyGrowth) + '%'"></span>
+                                            </span>
+                                            from last period
+                                        </dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-gradient-to-r from-green-500 to-green-600 overflow-hidden shadow rounded-lg text-white">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <i class="fas fa-check-circle text-white text-2xl"></i>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-green-100 truncate">Active Keys</dt>
+                                        <dd class="text-2xl font-bold text-white" x-text="statistics.active_keys || '0'"></dd>
+                                        <dd class="text-xs text-green-100" x-text="'(' + Math.round((statistics.active_keys / statistics.total_keys) * 100) + '% of total)'"></dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-gradient-to-r from-yellow-500 to-orange-500 overflow-hidden shadow rounded-lg text-white">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <i class="fas fa-unlock text-white text-2xl"></i>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-yellow-100 truncate">Activated</dt>
+                                        <dd class="text-2xl font-bold text-white" x-text="statistics.activated_keys || '0'"></dd>
+                                        <dd class="text-xs text-yellow-100" x-text="'(' + Math.round((statistics.activated_keys / statistics.total_keys) * 100) + '% conversion)'"></dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-gradient-to-r from-red-500 to-red-600 overflow-hidden shadow rounded-lg text-white">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <i class="fas fa-ban text-white text-2xl"></i>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-red-100 truncate">Banned</dt>
+                                        <dd class="text-2xl font-bold text-white" x-text="statistics.banned_keys || '0'"></dd>
+                                        <dd class="text-xs text-red-100" x-text="'(' + Math.round((statistics.banned_keys / statistics.total_keys) * 100) + '% of total)'"></dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-gradient-to-r from-gray-500 to-gray-600 overflow-hidden shadow rounded-lg text-white">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <i class="fas fa-clock text-white text-2xl"></i>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-100 truncate">Expired</dt>
+                                        <dd class="text-2xl font-bold text-white" x-text="statistics.expired_keys || '0'"></dd>
+                                        <dd class="text-xs text-gray-100" x-text="'(' + Math.round((statistics.expired_keys / statistics.total_keys) * 100) + '% of total)'"></dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-gradient-to-r from-purple-500 to-purple-600 overflow-hidden shadow rounded-lg text-white">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <i class="fas fa-dollar-sign text-white text-2xl"></i>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-purple-100 truncate">Revenue</dt>
+                                        <dd class="text-2xl font-bold text-white" x-text="'$' + calculateTotalRevenue()"></dd>
+                                        <dd class="text-xs text-purple-100">estimated total</dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chart Section -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Key Status Distribution Chart -->
+                    <div class="bg-white shadow rounded-lg">
+                        <div class="px-4 py-5 sm:p-6">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg font-semibold text-gray-900">Key Status Distribution</h3>
+                                <div class="flex space-x-2">
+                                    <button @click="chartTypes.statusChart = 'doughnut'" :class="chartTypes.statusChart === 'doughnut' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'" class="px-3 py-1 rounded text-xs">Doughnut</button>
+                                    <button @click="chartTypes.statusChart = 'bar'" :class="chartTypes.statusChart === 'bar' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'" class="px-3 py-1 rounded text-xs">Bar</button>
+                                </div>
+                            </div>
+                            <div class="relative h-64">
+                                <canvas id="statusChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Key Types Distribution Chart -->
+                    <div class="bg-white shadow rounded-lg">
+                        <div class="px-4 py-5 sm:p-6">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg font-semibold text-gray-900">Key Types Distribution</h3>
+                                <div class="flex space-x-2">
+                                    <button @click="chartTypes.typesChart = 'pie'" :class="chartTypes.typesChart === 'pie' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'" class="px-3 py-1 rounded text-xs">Pie</button>
+                                    <button @click="chartTypes.typesChart = 'polarArea'" :class="chartTypes.typesChart === 'polarArea' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'" class="px-3 py-1 rounded text-xs">Polar</button>
+                                </div>
+                            </div>
+                            <div class="relative h-64">
+                                <canvas id="typesChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Timeline and Trend Charts -->
+                <div class="bg-white shadow rounded-lg">
+                    <div class="px-4 py-5 sm:p-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-semibold text-gray-900">Key Generation Timeline</h3>
+                            <div class="flex space-x-2">
+                                <button @click="chartTypes.timelineChart = 'line'" :class="chartTypes.timelineChart === 'line' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'" class="px-3 py-1 rounded text-xs">Line</button>
+                                <button @click="chartTypes.timelineChart = 'bar'" :class="chartTypes.timelineChart === 'bar' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'" class="px-3 py-1 rounded text-xs">Bar</button>
+                                <button @click="chartTypes.timelineChart = 'area'" :class="chartTypes.timelineChart === 'area' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'" class="px-3 py-1 rounded text-xs">Area</button>
+                            </div>
+                        </div>
+                        <div class="relative h-80">
+                            <canvas id="timelineChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Advanced Analytics Grid -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Top Customers -->
+                    <div class="bg-white shadow rounded-lg">
+                        <div class="px-4 py-5 sm:p-6">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-4">Top Customers</h3>
+                            <div class="space-y-3">
+                                <template x-for="(customer, index) in topCustomers" :key="customer.name">
+                                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                        <div class="flex items-center space-x-3">
+                                            <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-bold" x-text="index + 1"></div>
+                                            <div>
+                                                <div class="font-medium text-gray-900" x-text="customer.name"></div>
+                                                <div class="text-sm text-gray-500" x-text="customer.total_keys + ' keys'"></div>
+                                            </div>
+                                        </div>
+                                        <div class="text-right">
+                                            <div class="text-sm font-medium text-gray-900" x-text="customer.active_keys + ' active'"></div>
+                                            <div class="text-xs text-gray-500" x-text="Math.round((customer.active_keys / customer.total_keys) * 100) + '%'"></div>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Key Performance Metrics -->
+                    <div class="bg-white shadow rounded-lg">
+                        <div class="px-4 py-5 sm:p-6">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-4">Performance Metrics</h3>
+                            <div class="space-y-4">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-sm font-medium text-gray-700">Activation Rate</span>
+                                    <div class="flex items-center space-x-2">
+                                        <div class="w-20 bg-gray-200 rounded-full h-2">
+                                            <div class="bg-green-500 h-2 rounded-full" :style="`width: ${activationRate}%`"></div>
+                                        </div>
+                                        <span class="text-sm font-bold text-gray-900" x-text="activationRate + '%'"></span>
+                                    </div>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-sm font-medium text-gray-700">Ban Rate</span>
+                                    <div class="flex items-center space-x-2">
+                                        <div class="w-20 bg-gray-200 rounded-full h-2">
+                                            <div class="bg-red-500 h-2 rounded-full" :style="`width: ${banRate}%`"></div>
+                                        </div>
+                                        <span class="text-sm font-bold text-gray-900" x-text="banRate + '%'"></span>
+                                    </div>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-sm font-medium text-gray-700">Expiry Rate</span>
+                                    <div class="flex items-center space-x-2">
+                                        <div class="w-20 bg-gray-200 rounded-full h-2">
+                                            <div class="bg-yellow-500 h-2 rounded-full" :style="`width: ${expiryRate}%`"></div>
+                                        </div>
+                                        <span class="text-sm font-bold text-gray-900" x-text="expiryRate + '%'"></span>
+                                    </div>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-sm font-medium text-gray-700">Efficiency Score</span>
+                                    <div class="flex items-center space-x-2">
+                                        <div class="w-20 bg-gray-200 rounded-full h-2">
+                                            <div class="bg-blue-500 h-2 rounded-full" :style="`width: ${efficiencyScore}%`"></div>
+                                        </div>
+                                        <span class="text-sm font-bold text-gray-900" x-text="efficiencyScore + '%'"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Revenue by Key Type -->
+                    <div class="bg-white shadow rounded-lg">
+                        <div class="px-4 py-5 sm:p-6">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-4">Revenue by Key Type</h3>
+                            <div class="space-y-3">
+                                <template x-for="revenue in revenueByKeyType" :key="revenue.type">
+                                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                        <div>
+                                            <div class="font-medium text-gray-900 uppercase" x-text="revenue.type"></div>
+                                            <div class="text-sm text-gray-500" x-text="revenue.count + ' keys sold'"></div>
+                                        </div>
+                                        <div class="text-right">
+                                            <div class="text-lg font-bold text-green-600" x-text="'$' + revenue.revenue"></div>
+                                            <div class="text-xs text-gray-500" x-text="Math.round(revenue.percentage) + '% of total'"></div>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Activity Feed -->
+                <div class="bg-white shadow rounded-lg">
+                    <div class="px-4 py-5 sm:p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h3>
+                        <div class="flow-root">
+                            <ul class="-mb-8">
+                                <template x-for="(activity, index) in recentActivity" :key="index">
+                                    <li>
+                                        <div class="relative pb-8">
+                                            <span x-show="index !== recentActivity.length - 1" class="absolute top-4 left-4 -ml-px h-full w-0.5 bg-gray-200"></span>
+                                            <div class="relative flex space-x-3">
+                                                <div>
+                                                    <span :class="activity.iconColor" class="h-8 w-8 rounded-full flex items-center justify-center ring-8 ring-white">
+                                                        <i :class="activity.icon" class="text-white text-sm"></i>
+                                                    </span>
+                                                </div>
+                                                <div class="min-w-0 flex-1 pt-1.5 flex justify-between space-x-4">
+                                                    <div>
+                                                        <p class="text-sm text-gray-500" x-html="activity.description"></p>
+                                                    </div>
+                                                    <div class="text-right text-sm whitespace-nowrap text-gray-500">
+                                                        <time x-text="activity.time"></time>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </li>
+                                </template>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Key Management Tab -->
+            <div x-show="activeTab === 'keys'" class="space-y-6">
+                <!-- Generate Keys Section -->
+                <div class="bg-white shadow rounded-lg">
+                    <div class="px-4 py-5 sm:p-6">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Generate New Keys</h3>
+                        <form @submit.prevent="generateKeys()" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Key Type</label>
+                                <select x-model="keyForm.key_type" required class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-primary focus:border-primary">
+                                    <template x-for="keyType in keyTypes" :key="keyType.name">
+                                        <option :value="keyType.name" x-text="`${keyType.name.toUpperCase()} - ${keyType.description} (${keyType.duration_days} days)`"></option>
+                                    </template>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Count</label>
+                                <input type="number" x-model="keyForm.count" min="1" max="1000" required class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-primary focus:border-primary">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Customer Name</label>
+                                <input type="text" x-model="keyForm.customer_name" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-primary focus:border-primary" placeholder="Optional">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Product Name</label>
+                                <input type="text" x-model="keyForm.product_name" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-primary focus:border-primary" placeholder="Optional">
+                            </div>
+                            <div class="flex items-end">
+                                <button type="submit" :disabled="loading" class="w-full bg-primary text-white py-2 px-4 rounded-md hover:bg-secondary transition-colors disabled:opacity-50">
+                                    <i class="fas fa-plus mr-2"></i>Generate
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Generated Keys Display -->
+                <div x-show="generatedKeys.length > 0" class="bg-white shadow rounded-lg">
+                    <div class="px-4 py-5 sm:p-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900">Generated Keys</h3>
+                            <button @click="copyKeys()" class="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 transition-colors">
+                                <i class="fas fa-copy mr-2"></i>Copy All
+                            </button>
+                        </div>
+                        <div class="bg-gray-50 p-4 rounded-lg max-h-60 overflow-y-auto">
+                            <template x-for="key in generatedKeys" :key="key">
+                                <div class="flex justify-between items-center py-2 border-b border-gray-200 last:border-b-0">
+                                    <code class="text-sm font-mono" x-text="key"></code>
+                                    <button @click="copyToClipboard(key)" class="text-blue-600 hover:text-blue-800">
+                                        <i class="fas fa-copy"></i>
+                                    </button>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Keys List -->
+                <div class="bg-white shadow rounded-lg">
+                    <div class="px-4 py-5 sm:p-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900">All Keys</h3>
+                            <div class="flex space-x-2">
+                                <button @click="exportKeysToExcel()" class="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 transition-colors">
+                                    <i class="fas fa-file-excel mr-2"></i>Export Excel
+                                </button>
+                                <button @click="exportKeysToCSV()" class="bg-orange-500 text-white px-4 py-2 rounded-md hover:bg-orange-600 transition-colors">
+                                    <i class="fas fa-file-csv mr-2"></i>Export CSV
+                                </button>
+                                <button @click="loadKeys()" class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition-colors">
+                                    <i class="fas fa-refresh mr-2"></i>Refresh
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Advanced Filters -->
+                        <div class="mb-6 bg-gray-50 p-4 rounded-lg">
+                            <div class="flex justify-between items-center mb-4">
+                                <h4 class="text-lg font-medium text-gray-900">Advanced Filters</h4>
+                                <button @click="resetFilters()" class="text-sm text-blue-600 hover:text-blue-800">Reset All Filters</button>
+                            </div>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4 mb-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Key Type</label>
+                                    <select x-model="keyFilters.key_type" @change="loadKeys()" class="w-full border border-gray-300 rounded-md px-3 py-1 text-sm">
+                                        <option value="">All Types</option>
+                                        <template x-for="keyType in keyTypes" :key="keyType.name">
+                                            <option :value="keyType.name" x-text="keyType.name.toUpperCase()"></option>
+                                        </template>
+                                    </select>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                                    <select x-model="keyFilters.status" @change="loadKeys()" class="w-full border border-gray-300 rounded-md px-3 py-1 text-sm">
+                                        <option value="">All Status</option>
+                                        <option value="active">Active Only</option>
+                                        <option value="activated">Activated Only</option>
+                                        <option value="banned">Banned Only</option>
+                                        <option value="inactive">Inactive Only</option>
+                                    </select>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Date Range</label>
+                                    <select x-model="keyFilters.dateRange" @change="loadKeys()" class="w-full border border-gray-300 rounded-md px-3 py-1 text-sm">
+                                        <option value="">All Time</option>
+                                        <option value="today">Today</option>
+                                        <option value="week">Last Week</option>
+                                        <option value="month">Last Month</option>
+                                        <option value="quarter">Last Quarter</option>
+                                        <option value="year">Last Year</option>
+                                    </select>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Activation Status</label>
+                                    <select x-model="keyFilters.activationStatus" @change="loadKeys()" class="w-full border border-gray-300 rounded-md px-3 py-1 text-sm">
+                                        <option value="">All</option>
+                                        <option value="never_activated">Never Activated</option>
+                                        <option value="recently_activated">Recently Activated</option>
+                                        <option value="expired">Expired</option>
+                                        <option value="expiring_soon">Expiring Soon</option>
+                                    </select>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Sort By</label>
+                                    <select x-model="keyFilters.sortBy" @change="loadKeys()" class="w-full border border-gray-300 rounded-md px-3 py-1 text-sm">
+                                        <option value="created_desc">Created (Newest)</option>
+                                        <option value="created_asc">Created (Oldest)</option>
+                                        <option value="activated_desc">Activation (Recent)</option>
+                                        <option value="expiry_desc">Expiry (Latest)</option>
+                                        <option value="customer_asc">Customer (A-Z)</option>
+                                        <option value="type_asc">Type (A-Z)</option>
+                                    </select>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Per Page</label>
+                                    <select x-model="pagination.per_page" @change="loadKeys()" class="w-full border border-gray-300 rounded-md px-3 py-1 text-sm">
+                                        <option value="10">10</option>
+                                        <option value="25">25</option>
+                                        <option value="50">50</option>
+                                        <option value="100">100</option>
+                                        <option value="250">250</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Search Customer</label>
+                                    <input type="text" x-model="keyFilters.customer_name" @input="debounceLoadKeys()" placeholder="Customer name..." class="w-full border border-gray-300 rounded-md px-3 py-1 text-sm">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Search Product</label>
+                                    <input type="text" x-model="keyFilters.product_name" @input="debounceLoadKeys()" placeholder="Product name..." class="w-full border border-gray-300 rounded-md px-3 py-1 text-sm">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Search Key</label>
+                                    <input type="text" x-model="keyFilters.keySearch" @input="debounceLoadKeys()" placeholder="ECP-XXXX-XXXX-XXXX" class="w-full border border-gray-300 rounded-md px-3 py-1 text-sm">
+                                </div>
+                            </div>
+                            
+                            <!-- Filter Summary -->
+                            <div x-show="hasActiveFilters()" class="mt-4 flex flex-wrap items-center gap-2">
+                                <span class="text-sm font-medium text-gray-700">Active Filters:</span>
+                                <template x-for="filter in getActiveFilters()" :key="filter.key">
+                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                        <span x-text="filter.label + ': ' + filter.value"></span>
+                                        <button @click="clearFilter(filter.key)" class="ml-1 text-blue-600 hover:text-blue-800">
+                                            <i class="fas fa-times text-xs"></i>
+                                        </button>
+                                    </span>
+                                </template>
+                            </div>
+                        </div>
+
+                        <!-- Keys Table -->
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Key</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    <template x-for="key in keys" :key="key.key_value">
+                                        <tr>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <code class="text-sm font-mono" x-text="key.key_value"></code>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 uppercase" x-text="key.key_type"></td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <span :class="getStatusColor(key)" class="inline-flex px-2 py-1 text-xs font-semibold rounded-full" x-text="getKeyStatus(key)"></span>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" x-text="key.customer_name || '-'"></td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" x-text="key.product_name || '-'"></td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" x-text="formatDate(key.created_at)"></td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                                                <button 
+                                                    @click="showKeyDetails(key.key_value)" 
+                                                    class="text-blue-600 hover:text-blue-900"
+                                                    title="View Details"
+                                                >
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                                <button 
+                                                    @click="banKey(key.key_value)" 
+                                                    x-show="!key.is_banned"
+                                                    class="text-red-600 hover:text-red-900"
+                                                    title="Ban Key"
+                                                >
+                                                    <i class="fas fa-ban"></i>
+                                                </button>
+                                                <button 
+                                                    @click="unbanKey(key.key_value)" 
+                                                    x-show="key.is_banned"
+                                                    class="text-green-600 hover:text-green-900"
+                                                    title="Unban Key"
+                                                >
+                                                    <i class="fas fa-check-circle"></i>
+                                                </button>
+                                                <button 
+                                                    @click="copyToClipboard(key.key_value)" 
+                                                    class="text-blue-600 hover:text-blue-900"
+                                                    title="Copy Key"
+                                                >
+                                                    <i class="fas fa-copy"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Pagination -->
+                        <div x-show="pagination.total_pages > 1" class="mt-4 flex justify-between items-center">
+                            <div class="text-sm text-gray-700">
+                                Showing <span x-text="((pagination.page - 1) * pagination.per_page) + 1"></span> to 
+                                <span x-text="Math.min(pagination.page * pagination.per_page, pagination.total)"></span> of 
+                                <span x-text="pagination.total"></span> results
+                            </div>
+                            <div class="space-x-2">
+                                <button 
+                                    @click="pagination.page > 1 && (pagination.page--, loadKeys())" 
+                                    :disabled="pagination.page <= 1"
+                                    class="px-3 py-1 border border-gray-300 rounded-md disabled:opacity-50"
+                                >
+                                    Previous
+                                </button>
+                                <span class="px-3 py-1" x-text="`Page ${pagination.page} of ${pagination.total_pages}`"></span>
+                                <button 
+                                    @click="pagination.page < pagination.total_pages && (pagination.page++, loadKeys())" 
+                                    :disabled="pagination.page >= pagination.total_pages"
+                                    class="px-3 py-1 border border-gray-300 rounded-md disabled:opacity-50"
+                                >
+                                    Next
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Key Activation Tab -->
+            <div x-show="activeTab === 'activation'" class="space-y-6">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Check Key Status -->
+                    <div class="bg-white shadow rounded-lg">
+                        <div class="px-4 py-5 sm:p-6">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Check Key Status</h3>
+                            <form @submit.prevent="checkKeyStatus()" class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Activation Key</label>
+                                    <input type="text" x-model="checkKeyForm.key" required placeholder="ECP-XXXX-XXXX-XXXX" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-primary focus:border-primary">
+                                </div>
+                                <button type="submit" :disabled="loading" class="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 transition-colors disabled:opacity-50">
+                                    <i class="fas fa-search mr-2"></i>Check Status
+                                </button>
+                            </form>
+                            
+                            <!-- Key Status Display -->
+                            <div x-show="keyStatusResult" class="mt-6 p-4 border rounded-lg" :class="keyStatusResult?.is_valid ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'">
+                                <template x-if="keyStatusResult">
+                                    <div class="space-y-2">
+                                        <div class="flex justify-between">
+                                            <span class="font-medium">Key:</span>
+                                            <code class="text-sm" x-text="keyStatusResult.key"></code>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="font-medium">Type:</span>
+                                            <span class="uppercase" x-text="keyStatusResult.type"></span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="font-medium">Status:</span>
+                                            <span :class="keyStatusResult.is_valid ? 'text-green-600' : 'text-red-600'" x-text="keyStatusResult.is_valid ? 'Valid' : 'Invalid'"></span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="font-medium">Active:</span>
+                                            <span x-text="keyStatusResult.is_active ? 'Yes' : 'No'"></span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="font-medium">Banned:</span>
+                                            <span x-text="keyStatusResult.is_banned ? 'Yes' : 'No'"></span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="font-medium">Created:</span>
+                                            <span x-text="formatDate(keyStatusResult.created_at)"></span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="font-medium">Activation Date:</span>
+                                            <span x-text="keyStatusResult.activation_date ? formatDate(keyStatusResult.activation_date) : 'Not activated'"></span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="font-medium">Expiry Date:</span>
+                                            <span x-text="keyStatusResult.expiry_date ? formatDate(keyStatusResult.expiry_date) : 'No expiry'"></span>
+                                        </div>
+                                        <template x-if="keyStatusResult.customer_name">
+                                            <div class="flex justify-between">
+                                                <span class="font-medium">Customer:</span>
+                                                <span x-text="keyStatusResult.customer_name"></span>
+                                            </div>
+                                        </template>
+                                        <template x-if="keyStatusResult.hwid">
+                                            <div class="flex justify-between">
+                                                <span class="font-medium">HWID:</span>
+                                                <code class="text-xs" x-text="keyStatusResult.hwid"></code>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Activate Key -->
+                    <div class="bg-white shadow rounded-lg">
+                        <div class="px-4 py-5 sm:p-6">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Activate Key</h3>
+                            <form @submit.prevent="activateKey()" class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Activation Key</label>
+                                    <input type="text" x-model="activateKeyForm.key" required placeholder="ECP-XXXX-XXXX-XXXX" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-primary focus:border-primary">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Hardware ID (Optional)</label>
+                                    <input type="text" x-model="activateKeyForm.hwid" placeholder="Hardware fingerprint" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-primary focus:border-primary">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Machine ID (Optional)</label>
+                                    <input type="text" x-model="activateKeyForm.machine_id" placeholder="Machine identifier" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-primary focus:border-primary">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Email (Optional)</label>
+                                    <input type="email" x-model="activateKeyForm.email" placeholder="user@example.com" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-primary focus:border-primary">
+                                </div>
+                                <button type="submit" :disabled="loading" class="w-full bg-green-500 text-white py-2 px-4 rounded-md hover:bg-green-600 transition-colors disabled:opacity-50">
+                                    <i class="fas fa-unlock mr-2"></i>Activate Key
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Customers Tab -->
+            <div x-show="activeTab === 'customers'" class="space-y-6">
+                <div class="bg-white shadow rounded-lg">
+                    <div class="px-4 py-5 sm:p-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900">Customer List</h3>
+                            <div class="flex space-x-2">
+                                <button @click="exportCustomersToExcel()" class="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 transition-colors">
+                                    <i class="fas fa-file-excel mr-2"></i>Export Excel
+                                </button>
+                                <button @click="exportCustomersToCSV()" class="bg-orange-500 text-white px-4 py-2 rounded-md hover:bg-orange-600 transition-colors">
+                                    <i class="fas fa-file-csv mr-2"></i>Export CSV
+                                </button>
+                                <button @click="loadCustomers()" class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition-colors">
+                                    <i class="fas fa-refresh mr-2"></i>Refresh
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Keys</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Active Keys</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Activated Keys</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    <template x-for="customer in customers" :key="customer.name + customer.email">
+                                        <tr>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900" x-text="customer.name || '-'"></td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" x-text="customer.email || '-'"></td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" x-text="customer.total_keys"></td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" x-text="customer.active_keys"></td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" x-text="customer.activated_keys"></td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Products Tab -->
+            <div x-show="activeTab === 'products'" class="space-y-6">
+                <div class="bg-white shadow rounded-lg">
+                    <div class="px-4 py-5 sm:p-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900">Product List</h3>
+                            <div class="flex space-x-2">
+                                <button @click="exportProductsToExcel()" class="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 transition-colors">
+                                    <i class="fas fa-file-excel mr-2"></i>Export Excel
+                                </button>
+                                <button @click="exportProductsToCSV()" class="bg-orange-500 text-white px-4 py-2 rounded-md hover:bg-orange-600 transition-colors">
+                                    <i class="fas fa-file-csv mr-2"></i>Export CSV
+                                </button>
+                                <button @click="loadProducts()" class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition-colors">
+                                    <i class="fas fa-refresh mr-2"></i>Refresh
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product Name</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Keys</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Active Keys</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Activated Keys</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Key Types</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    <template x-for="product in products" :key="product.name">
+                                        <tr>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900" x-text="product.name"></td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" x-text="product.total_keys"></td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" x-text="product.active_keys"></td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" x-text="product.activated_keys"></td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" x-text="product.key_types.join(', ').toUpperCase()"></td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Export Data Tab -->
+            <div x-show="activeTab === 'exports'" class="space-y-6">
+                <div class="bg-white shadow rounded-lg">
+                    <div class="px-4 py-5 sm:p-6">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900 mb-6">Export Data</h3>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <!-- Export Keys -->
+                            <div class="bg-gradient-to-r from-blue-50 to-blue-100 p-6 rounded-lg border border-blue-200">
+                                <div class="text-center">
+                                    <div class="mx-auto w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center mb-4">
+                                        <i class="fas fa-key text-white text-xl"></i>
+                                    </div>
+                                    <h4 class="text-lg font-semibold text-gray-900 mb-2">Export Keys</h4>
+                                    <p class="text-sm text-gray-600 mb-4">Download all activation keys data</p>
+                                    <div class="space-y-2">
+                                        <button @click="exportKeysToExcel()" class="w-full bg-green-500 text-white py-2 px-4 rounded-md hover:bg-green-600 transition-colors">
+                                            <i class="fas fa-file-excel mr-2"></i>Excel Format
+                                        </button>
+                                        <button @click="exportKeysToCSV()" class="w-full bg-orange-500 text-white py-2 px-4 rounded-md hover:bg-orange-600 transition-colors">
+                                            <i class="fas fa-file-csv mr-2"></i>CSV Format
+                                        </button>
+                                        <button @click="exportKeysFromAPI()" class="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 transition-colors">
+                                            <i class="fas fa-download mr-2"></i>API Export
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Export Customers -->
+                            <div class="bg-gradient-to-r from-green-50 to-green-100 p-6 rounded-lg border border-green-200">
+                                <div class="text-center">
+                                    <div class="mx-auto w-12 h-12 bg-green-500 rounded-full flex items-center justify-center mb-4">
+                                        <i class="fas fa-users text-white text-xl"></i>
+                                    </div>
+                                    <h4 class="text-lg font-semibold text-gray-900 mb-2">Export Customers</h4>
+                                    <p class="text-sm text-gray-600 mb-4">Download customer statistics and data</p>
+                                    <div class="space-y-2">
+                                        <button @click="exportCustomersToExcel()" class="w-full bg-green-500 text-white py-2 px-4 rounded-md hover:bg-green-600 transition-colors">
+                                            <i class="fas fa-file-excel mr-2"></i>Excel Format
+                                        </button>
+                                        <button @click="exportCustomersToCSV()" class="w-full bg-orange-500 text-white py-2 px-4 rounded-md hover:bg-orange-600 transition-colors">
+                                            <i class="fas fa-file-csv mr-2"></i>CSV Format
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Export Products -->
+                            <div class="bg-gradient-to-r from-purple-50 to-purple-100 p-6 rounded-lg border border-purple-200">
+                                <div class="text-center">
+                                    <div class="mx-auto w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center mb-4">
+                                        <i class="fas fa-box text-white text-xl"></i>
+                                    </div>
+                                    <h4 class="text-lg font-semibold text-gray-900 mb-2">Export Products</h4>
+                                    <p class="text-sm text-gray-600 mb-4">Download product information and statistics</p>
+                                    <div class="space-y-2">
+                                        <button @click="exportProductsToExcel()" class="w-full bg-green-500 text-white py-2 px-4 rounded-md hover:bg-green-600 transition-colors">
+                                            <i class="fas fa-file-excel mr-2"></i>Excel Format
+                                        </button>
+                                        <button @click="exportProductsToCSV()" class="w-full bg-orange-500 text-white py-2 px-4 rounded-md hover:bg-orange-600 transition-colors">
+                                            <i class="fas fa-file-csv mr-2"></i>CSV Format
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Export Statistics -->
+                        <div class="mt-8 bg-gray-50 p-6 rounded-lg">
+                            <h4 class="text-lg font-semibold text-gray-900 mb-4">Export Statistics</h4>
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                                <div class="text-center">
+                                    <div class="text-2xl font-bold text-blue-600" x-text="statistics.total_keys || '0'"></div>
+                                    <div class="text-gray-600">Total Keys</div>
+                                </div>
+                                <div class="text-center">
+                                    <div class="text-2xl font-bold text-green-600" x-text="customers.length || '0'"></div>
+                                    <div class="text-gray-600">Customers</div>
+                                </div>
+                                <div class="text-center">
+                                    <div class="text-2xl font-bold text-purple-600" x-text="products.length || '0'"></div>
+                                    <div class="text-gray-600">Products</div>
+                                </div>
+                                <div class="text-center">
+                                    <div class="text-2xl font-bold text-orange-600" x-text="keyTypes.length || '0'"></div>
+                                    <div class="text-gray-600">Key Types</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Documentation Tab -->
+            <div x-show="activeTab === 'docs'" class="space-y-6">
+                <!-- API Documentation Header -->
+                <div class="bg-gradient-to-r from-blue-600 to-blue-800 shadow rounded-lg text-white">
+                    <div class="px-6 py-8">
+                        <h2 class="text-3xl font-bold mb-2">ECertifPro License Integration Documentation</h2>
+                        <p class="text-blue-100 text-lg">Complete guide for integrating activation keys with your Python server</p>
+                        <div class="mt-4 flex flex-wrap gap-4">
+                            <span class="bg-blue-500 px-3 py-1 rounded-full text-sm">Python Integration</span>
+                            <span class="bg-blue-500 px-3 py-1 rounded-full text-sm">REST API</span>
+                            <span class="bg-blue-500 px-3 py-1 rounded-full text-sm">License Validation</span>
+                            <span class="bg-blue-500 px-3 py-1 rounded-full text-sm">Hardware Fingerprinting</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Start Guide -->
+                <div class="bg-white shadow rounded-lg">
+                    <div class="px-6 py-5">
+                        <h3 class="text-xl font-semibold text-gray-900 mb-4">🚀 Quick Start Guide</h3>
+                        <div class="prose max-w-none">
+                            <p class="text-gray-600 mb-4">Get your license validation system up and running in minutes with these simple steps:</p>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div class="bg-gray-50 p-4 rounded-lg">
+                                    <div class="text-blue-600 text-2xl mb-2">1️⃣</div>
+                                    <h4 class="font-semibold mb-2">Install Dependencies</h4>
+                                    <p class="text-sm text-gray-600">Install required Python packages for API communication</p>
+                                </div>
+                                <div class="bg-gray-50 p-4 rounded-lg">
+                                    <div class="text-green-600 text-2xl mb-2">2️⃣</div>
+                                    <h4 class="font-semibold mb-2">Configure API</h4>
+                                    <p class="text-sm text-gray-600">Set up your API endpoint and authentication</p>
+                                </div>
+                                <div class="bg-gray-50 p-4 rounded-lg">
+                                    <div class="text-purple-600 text-2xl mb-2">3️⃣</div>
+                                    <h4 class="font-semibold mb-2">Validate License</h4>
+                                    <p class="text-sm text-gray-600">Implement license checking in your application</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Python Client Library -->
+                <div class="bg-white shadow rounded-lg">
+                    <div class="px-6 py-5">
+                        <h3 class="text-xl font-semibold text-gray-900 mb-4">📦 Python Client Library</h3>
+                        
+                        <div class="mb-6">
+                            <h4 class="text-lg font-medium text-gray-900 mb-2">Installation</h4>
+                            <div class="bg-gray-900 rounded-lg p-4 overflow-x-auto">
+                                <code class="text-green-400 text-sm">
+# Install required dependencies<br>
+pip install requests hashlib platform uuid
+                                </code>
+                            </div>
+                        </div>
+
+                        <div class="mb-6">
+                            <h4 class="text-lg font-medium text-gray-900 mb-2">ECertifPro Client Class</h4>
+                            <div class="bg-gray-900 rounded-lg p-4 overflow-x-auto">
+                                <code class="text-green-400 text-sm">
+<span class="text-blue-400">import</span> requests<br>
+<span class="text-blue-400">import</span> hashlib<br>
+<span class="text-blue-400">import</span> platform<br>
+<span class="text-blue-400">import</span> uuid<br>
+<span class="text-blue-400">from</span> datetime <span class="text-blue-400">import</span> datetime<br>
+<br>
+<span class="text-blue-400">class</span> <span class="text-yellow-400">ECertifProClient</span>:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-gray-500">"""ECertifPro License Validation Client"""</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">def</span> <span class="text-green-400">__init__</span>(<span class="text-orange-400">self</span>, api_url=<span class="text-red-400">"http://localhost:5000"</span>):<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-orange-400">self</span>.api_url = api_url<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-orange-400">self</span>.session = requests.Session()<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-orange-400">self</span>.hardware_id = <span class="text-orange-400">self</span>._generate_hardware_id()<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">def</span> <span class="text-green-400">_generate_hardware_id</span>(<span class="text-orange-400">self</span>):<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-gray-500">"""Generate unique hardware fingerprint"""</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;machine_info = f<span class="text-red-400">"{platform.machine()}-{platform.processor()}"</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mac_address = <span class="text-blue-400">str</span>(uuid.getnode())<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;combined = f<span class="text-red-400">"{machine_info}-{mac_address}"</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">return</span> hashlib.sha256(combined.encode()).hexdigest()[:16]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-4 00">def</span> <span class="text-green-400">check_license</span>(<span class="text-orange-400">self</span>, license_key):<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-gray-500">"""Check if license key is valid and not expired"""</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">try</span>:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;response = <span class="text-orange-400">self</span>.session.get(<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;f<span class="text-red-400">"{self.api_url}/api/keys/{license_key}"</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">if</span> response.status_code == <span class="text-purple-400">200</span>:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;data = response.json()<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">if</span> data[<span class="text-red-400">'success'</span>]:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">return</span> data[<span class="text-red-400">'data'</span>]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">return</span> <span class="text-purple-400">None</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">except</span> <span class="text-yellow-400">Exception</span> <span class="text-blue-400">as</span> e:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">print</span>(f<span class="text-red-400">"License check error: {e}"</span>)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">return</span> <span class="text-purple-400">None</span>
+                                </code>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- License Activation -->
+                <div class="bg-white shadow rounded-lg">
+                    <div class="px-6 py-5">
+                        <h3 class="text-xl font-semibold text-gray-900 mb-4">🔐 License Activation Implementation</h3>
+                        
+                        <div class="mb-6">
+                            <h4 class="text-lg font-medium text-gray-900 mb-2">Activate License Method</h4>
+                            <div class="bg-gray-900 rounded-lg p-4 overflow-x-auto">
+                                <code class="text-green-400 text-sm">
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">def</span> <span class="text-green-400">activate_license</span>(<span class="text-orange-400">self</span>, license_key, email=<span class="text-purple-400">None</span>):<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-gray-500">"""Activate license key with hardware binding"""</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;activation_data = {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-red-400">'key'</span>: license_key,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-red-400">'hwid'</span>: <span class="text-orange-400">self</span>.hardware_id,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-red-400">'machine_id'</span>: platform.node(),<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-red-400">'email'</span>: email<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">try</span>:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;response = <span class="text-orange-400">self</span>.session.post(<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;f<span class="text-red-400">"{self.api_url}/api/activate"</span>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;json=activation_data<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">if</span> response.status_code == <span class="text-purple-400">200</span>:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;result = response.json()<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">return</span> result[<span class="text-red-400">'success'</span>], result[<span class="text-red-400">'message'</span>]<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">else</span>:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">return</span> <span class="text-purple-400">False</span>, <span class="text-red-400">"Activation failed"</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">except</span> <span class="text-yellow-400">Exception</span> <span class="text-blue-400">as</span> e:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">return</span> <span class="text-purple-400">False</span>, f<span class="text-red-400">"Error: {str(e)}"</span><br>
+<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">def</span> <span class="text-green-400">is_license_valid</span>(<span class="text-orange-400">self</span>, license_key):<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-gray-500">"""Check if license is valid and not expired"""</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;license_data = <span class="text-orange-400">self</span>.check_license(license_key)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">if</span> <span class="text-blue-400">not</span> license_data:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">return</span> <span class="text-purple-400">False</span>, <span class="text-red-400">"License not found"</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-gray-500"># Check if license is valid</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">if</span> license_data.get(<span class="text-red-400">'is_banned'</span>):<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">return</span> <span class="text-purple-400">False</span>, <span class="text-red-400">"License is banned"</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">if</span> <span class="text-blue-400">not</span> license_data.get(<span class="text-red-400">'is_active'</span>):<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">return</span> <span class="text-purple-400">False</span>, <span class="text-red-400">"License is inactive"</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-gray-500"># Check expiry date</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;expiry_date = license_data.get(<span class="text-red-400">'expiry_date'</span>)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">if</span> expiry_date:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">from</span> datetime <span class="text-blue-400">import</span> datetime<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;expiry = datetime.fromisoformat(expiry_date.replace(<span class="text-red-400">'Z'</span>, <span class="text-red-400">'+00:00'</span>))<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">if</span> datetime.now() > expiry:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">return</span> <span class="text-purple-400">False</span>, <span class="text-red-400">"License has expired"</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-gray-500"># Check hardware binding if activated</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">if</span> license_data.get(<span class="text-red-400">'hwid'</span>) <span class="text-blue-400">and</span> license_data[<span class="text-red-400">'hwid'</span>] != <span class="text-orange-400">self</span>.hardware_id:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">return</span> <span class="text-purple-400">False</span>, <span class="text-red-400">"License bound to different hardware"</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">return</span> <span class="text-purple-400">True</span>, <span class="text-red-400">"License is valid"</span>
+                                </code>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Flask Integration -->
+                <div class="bg-white shadow rounded-lg">
+                    <div class="px-6 py-5">
+                        <h3 class="text-xl font-semibold text-gray-900 mb-4">🌐 Flask Server Integration</h3>
+                        
+                        <div class="mb-6">
+                            <h4 class="text-lg font-medium text-gray-900 mb-2">License Middleware</h4>
+                            <div class="bg-gray-900 rounded-lg p-4 overflow-x-auto">
+                                <code class="text-green-400 text-sm">
+<span class="text-blue-400">from</span> flask <span class="text-blue-400">import</span> Flask, request, jsonify<br>
+<span class="text-blue-400">from</span> functools <span class="text-blue-400">import</span> wraps<br>
+<br>
+app = Flask(__name__)<br>
+<br>
+<span class="text-gray-500"># Initialize ECertifPro client</span><br>
+license_client = ECertifProClient(<span class="text-red-400">"http://your-license-server.com"</span>)<br>
+<br>
+<span class="text-blue-400">def</span> <span class="text-green-400">require_license</span>(f):<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-gray-500">"""Decorator to require valid license for route access"""</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-purple-400">@wraps</span>(f)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">def</span> <span class="text-green-400">decorated_function</span>(*args, **kwargs):<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;license_key = request.headers.get(<span class="text-red-400">'X-License-Key'</span>)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">if</span> <span class="text-blue-4 00">not</span> license_key:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">return</span> jsonify({<span class="text-red-400">'error'</span>: <span class="text-red-400">'License key required'</span>}), <span class="text-purple-400">401</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;is_valid, message = license_client.is_license_valid(license_key)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">if</span> <span class="text-blue-400">not</span> is_valid:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">return</span> jsonify({<span class="text-red-400">'error'</span>: message}), <span class="text-purple-400">403</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">return</span> f(*args, **kwargs)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">return</span> decorated_function<br>
+<br>
+<span class="text-purple-400">@app.route</span>(<span class="text-red-400">'/protected-feature'</span>)<br>
+<span class="text-purple-400">@require_license</span><br>
+<span class="text-blue-400">def</span> <span class="text-green-400">protected_feature</span>():<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-gray-500">"""This route requires a valid license"""</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">return</span> jsonify({<span class="text-red-400">'message'</span>: <span class="text-red-400">'Access granted to licensed feature'</span>})<br>
+<br>
+<span class="text-purple-400">@app.route</span>(<span class="text-red-400">'/activate'</span>, methods=[<span class="text-red-400">'POST'</span>])<br>
+<span class="text-blue-400">def</span> <span class="text-green-400">activate_license_route</span>():<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-gray-500">"""Activate license for this server"""</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;data = request.get_json()<br>
+&nbsp;&nbsp;&nbsp;&nbsp;license_key = data.get(<span class="text-red-400">'license_key'</span>)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;email = data.get(<span class="text-red-400">'email'</span>)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;success, message = license_client.activate_license(license_key, email)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">return</span> jsonify({<span class="text-red-400">'success'</span>: success, <span class="text-red-400">'message'</span>: message})
+                                </code>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Complete Usage Example -->
+                <div class="bg-white shadow rounded-lg">
+                    <div class="px-6 py-5">
+                        <h3 class="text-xl font-semibold text-gray-900 mb-4">🔧 Complete Usage Example</h3>
+                        
+                        <div class="mb-6">
+                            <h4 class="text-lg font-medium text-gray-900 mb-2">Complete Implementation</h4>
+                            <div class="bg-gray-900 rounded-lg p-4 overflow-x-auto">
+                                <code class="text-green-400 text-sm">
+<span class="text-gray-500">#!/usr/bin/env python3</span><br>
+<span class="text-gray-500">"""</span><br>
+<span class="text-gray-500">ECertifPro License Integration Example</span><br>
+<span class="text-gray-500">Complete implementation for your Python application</span><br>
+<span class="text-gray-500">"""</span><br>
+<br>
+<span class="text-blue-400">from</span> ecertifpro_client <span class="text-blue-400">import</span> ECertifProClient<br>
+<span class="text-blue-400">import</span> json<br>
+<span class="text-blue-400">import</span> os<br>
+<br>
+<span class="text-blue-400">class</span> <span class="text-yellow-400">LicenseManager</span>:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-gray-500">"""Manage license validation for your application"""</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">def</span> <span class="text-green-400">__init__</span>(<span class="text-orange-400">self</span>, api_url, license_file=<span class="text-red-400">"license.json"</span>):<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-orange-400">self</span>.client = ECertifProClient(api_url)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-orange-400">self</span>.license_file = license_file<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-orange-400">self</span>._load_license()<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">def</span> <span class="text-green-400">_load_license</span>(<span class="text-orange-400">self</span>):<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-gray-500">"""Load license from file"""</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">if</span> os.path.exists(<span class="text-orange-400">self</span>.license_file):<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">with</span> <span class="text-blue-400">open</span>(<span class="text-orange-400">self</span>.license_file, <span class="text-red-400">'r'</span>) <span class="text-blue-400">as</span> f:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-orange-400">self</span>.license_data = json.load(f)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">else</span>:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-orange-400">self</span>.license_data = {}<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">def</span> <span class="text-green-400">_save_license</span>(<span class="text-orange-400">self</span>):<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-gray-500">"""Save license to file"""</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">with</span> <span class="text-blue-400">open</span>(<span class="text-orange-400">self</span>.license_file, <span class="text-red-400">'w'</span>) <span class="text-blue-400">as</span> f:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;json.dump(<span class="text-orange-400">self</span>.license_data, f, indent=<span class="text-purple-400">2</span>)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">def</span> <span class="text-green-400">activate</span>(<span class="text-orange-400">self</span>, license_key, email=<span class="text-purple-400">None</span>):<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-gray-500">"""Activate license and save to file"""</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;success, message = <span class="text-orange-400">self</span>.client.activate_license(license_key, email)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">if</span> success:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-orange-400">self</span>.license_data = {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-red-400">'key'</span>: license_key,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-red-400">'email'</span>: email,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-red-400">'activated_at'</span>: datetime.now().isoformat()<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-orange-400">self</span>._save_license()<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">return</span> success, message<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">def</span> <span class="text-green-400">is_licensed</span>(<span class="text-orange-400">self</span>):<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-gray-500">"""Check if application is properly licensed"""</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">if</span> <span class="text-blue-400">not</span> <span class="text-orange-400">self</span>.license_data.get(<span class="text-red-400">'key'</span>):<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">return</span> <span class="text-purple-400">False</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;is_valid, _ = <span class="text-orange-400">self</span>.client.is_license_valid(<span class="text-orange-400">self</span>.license_data[<span class="text-red-400">'key'</span>])<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">return</span> is_valid<br>
+<br>
+<span class="text-gray-500"># Example usage</span><br>
+<span class="text-blue-400">if</span> __name__ == <span class="text-red-400">"__main__"</span>:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-gray-500"># Initialize license manager</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;license_manager = LicenseManager(<span class="text-red-400">"http://localhost:5000"</span>)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-gray-500"># Check if already licensed</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">if</span> <span class="text-blue-400">not</span> license_manager.is_licensed():<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">print</span>(<span class="text-red-400">"Application not licensed. Please enter your license key:"</span>)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;key = <span class="text-blue-400">input</span>(<span class="text-red-400">"License Key: "</span>)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;email = <span class="text-blue-400">input</span>(<span class="text-red-400">"Email (optional): "</span>) <span class="text-blue-400">or</span> <span class="text-purple-400">None</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;success, message = license_manager.activate(key, email)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">if</span> success:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">print</span>(<span class="text-red-400">"✅ License activated successfully!"</span>)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">else</span>:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">print</span>(f<span class="text-red-400">"❌ Activation failed: {message}"</span>)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;exit(<span class="text-purple-400">1</span>)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-gray-500"># Your application logic here</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-blue-400">print</span>(<span class="text-red-400">"🚀 Application starting with valid license..."</span>)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-gray-500"># Start your main application</span>
+                                </code>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- API Endpoints Reference -->
+                <div class="bg-white shadow rounded-lg">
+                    <div class="px-6 py-5">
+                        <h3 class="text-xl font-semibold text-gray-900 mb-4">📊 API Endpoints Reference</h3>
+                        
+                        <div class="space-y-6">
+                            <!-- Check License Endpoint -->
+                            <div class="border border-gray-200 rounded-lg p-4">
+                                <div class="flex items-center mb-2">
+                                    <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-medium mr-2">GET</span>
+                                    <code class="text-sm font-mono">/api/keys/{key_value}</code>
+                                </div>
+                                <p class="text-gray-600 text-sm mb-2">Check license key status and details</p>
+                                <div class="bg-gray-50 p-3 rounded text-sm">
+                                    <strong>Response:</strong><br>
+                                    <code class="text-xs">
+{<br>
+&nbsp;&nbsp;"success": true,<br>
+&nbsp;&nbsp;"data": {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;"key": "ECP-XXXX-XXXX-XXXX",<br>
+&nbsp;&nbsp;&nbsp;&nbsp;"is_valid": true,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;"is_active": true,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;"is_banned": false,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;"expiry_date": "2024-12-31T23:59:59",<br>
+&nbsp;&nbsp;&nbsp;&nbsp;"hwid": "abc123def456"<br>
+&nbsp;&nbsp;}<br>
+}
+                                    </code>
+                                </div>
+                            </div>
+
+                            <!-- Activate License Endpoint -->
+                            <div class="border border-gray-200 rounded-lg p-4">
+                                <div class="flex items-center mb-2">
+                                    <span class="bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-medium mr-2">POST</span>
+                                    <code class="text-sm font-mono">/api/activate</code>
+                                </div>
+                                <p class="text-gray-600 text-sm mb-2">Activate a license key with hardware binding</p>
+                                <div class="bg-gray-50 p-3 rounded text-sm">
+                                    <strong>Request Body:</strong><br>
+                                    <code class="text-xs">
+{<br>
+&nbsp;&nbsp;"key": "ECP-XXXX-XXXX-XXXX",<br>
+&nbsp;&nbsp;"hwid": "hardware_fingerprint",<br>
+&nbsp;&nbsp;"machine_id": "machine_name",<br>
+&nbsp;&nbsp;"email": "user@example.com"<br>
+}
+                                    </code>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Best Practices -->
+                <div class="bg-white shadow rounded-lg">
+                    <div class="px-6 py-5">
+                        <h3 class="text-xl font-semibold text-gray-900 mb-4">✨ Best Practices & Security</h3>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <h4 class="font-semibold text-gray-900 mb-3">🔐 Security Recommendations</h4>
+                                <ul class="space-y-2 text-sm text-gray-600">
+                                    <li class="flex items-start">
+                                        <span class="text-green-500 mr-2">✓</span>
+                                        Always validate licenses on server startup
+                                    </li>
+                                    <li class="flex items-start">
+                                        <span class="text-green-500 mr-2">✓</span>
+                                        Implement periodic license revalidation
+                                    </li>
+                                    <li class="flex items-start">
+                                        <span class="text-green-500 mr-2">✓</span>
+                                        Use hardware fingerprinting for binding
+                                    </li>
+                                    <li class="flex items-start">
+                                        <span class="text-green-500 mr-2">✓</span>
+                                        Store license data securely (encrypted)
+                                    </li>
+                                    <li class="flex items-start">
+                                        <span class="text-green-500 mr-2">✓</span>
+                                        Handle network errors gracefully
+                                    </li>
+                                </ul>
+                            </div>
+                            
+                            <div>
+                                <h4 class="font-semibold text-gray-900 mb-3">⚡ Performance Tips</h4>
+                                <ul class="space-y-2 text-sm text-gray-600">
+                                    <li class="flex items-start">
+                                        <span class="text-blue-500 mr-2">•</span>
+                                        Cache license validation results
+                                    </li>
+                                    <li class="flex items-start">
+                                        <span class="text-blue-500 mr-2">•</span>
+                                        Use connection pooling for API calls
+                                    </li>
+                                    <li class="flex items-start">
+                                        <span class="text-blue-500 mr-2">•</span>
+                                        Implement timeout handling
+                                    </li>
+                                    <li class="flex items-start">
+                                        <span class="text-blue-500 mr-2">•</span>
+                                        Validate asynchronously when possible
+                                    </li>
+                                    <li class="flex items-start">
+                                        <span class="text-blue-500 mr-2">•</span>
+                                        Log validation events for monitoring
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Download Section -->
+                <div class="bg-gradient-to-r from-green-500 to-green-600 shadow rounded-lg text-white">
+                    <div class="px-6 py-5">
+                        <h3 class="text-xl font-semibold mb-4">📥 Download Complete Integration Package</h3>
+                        <p class="text-green-100 mb-4">Get the complete Python client library with examples and documentation.</p>
+                        <div class="flex flex-wrap gap-4">
+                            <button @click="downloadPythonClient()" class="bg-white text-green-600 px-6 py-2 rounded-lg font-medium hover:bg-green-50 transition-colors">
+                                <i class="fas fa-download mr-2"></i>Download Python Client
+                            </button>
+                            <button @click="downloadFlaskExample()" class="bg-green-400 text-white px-6 py-2 rounded-lg font-medium hover:bg-green-300 transition-colors">
+                                <i class="fas fa-code mr-2"></i>Download Flask Example
+                            </button>
+                            <button @click="downloadDocumentation()" class="bg-green-700 text-white px-6 py-2 rounded-lg font-medium hover:bg-green-800 transition-colors">
+                                <i class="fas fa-file-pdf mr-2"></i>Download PDF Guide
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div x-show="toast.show" x-transition class="fixed bottom-4 right-4 z-50">
+        <div :class="toast.type === 'success' ? 'bg-green-500' : 'bg-red-500'" class="text-white px-6 py-3 rounded-lg shadow-lg">
+            <p x-text="toast.message"></p>
+        </div>
+    </div>
+
+    <!-- Key Details Modal -->
+    <div x-show="showKeyModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-96 overflow-y-auto">
+            <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                <h3 class="text-lg font-semibold text-gray-900">Key Details</h3>
+                <button @click="showKeyModal = false" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="px-6 py-4">
+                <template x-if="selectedKeyDetails">
+                    <div class="space-y-3">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <span class="text-sm font-medium text-gray-500">Key Value:</span>
+                                <div class="mt-1">
+                                    <code class="text-sm bg-gray-100 px-2 py-1 rounded" x-text="selectedKeyDetails.key"></code>
+                                </div>
+                            </div>
+                            <div>
+                                <span class="text-sm font-medium text-gray-500">Type:</span>
+                                <div class="mt-1 text-sm text-gray-900 uppercase" x-text="selectedKeyDetails.type"></div>
+                            </div>
+                            <div>
+                                <span class="text-sm font-medium text-gray-500">Status:</span>
+                                <div class="mt-1">
+                                    <span :class="selectedKeyDetails.is_valid ? 'text-green-600' : 'text-red-600'" class="text-sm font-medium" x-text="selectedKeyDetails.is_valid ? 'Valid' : 'Invalid'"></span>
+                                </div>
+                            </div>
+                            <div>
+                                <span class="text-sm font-medium text-gray-500">Active:</span>
+                                <div class="mt-1 text-sm text-gray-900" x-text="selectedKeyDetails.is_active ? 'Yes' : 'No'"></div>
+                            </div>
+                            <div>
+                                <span class="text-sm font-medium text-gray-500">Banned:</span>
+                                <div class="mt-1 text-sm text-gray-900" x-text="selectedKeyDetails.is_banned ? 'Yes' : 'No'"></div>
+                            </div>
+                            <div>
+                                <span class="text-sm font-medium text-gray-500">Created:</span>
+                                <div class="mt-1 text-sm text-gray-900" x-text="formatDate(selectedKeyDetails.created_at)"></div>
+                            </div>
+                            <div>
+                                <span class="text-sm font-medium text-gray-500">Activation Date:</span>
+                                <div class="mt-1 text-sm text-gray-900" x-text="selectedKeyDetails.activation_date ? formatDate(selectedKeyDetails.activation_date) : 'Not activated'"></div>
+                            </div>
+                            <div>
+                                <span class="text-sm font-medium text-gray-500">Expiry Date:</span>
+                                <div class="mt-1 text-sm text-gray-900" x-text="selectedKeyDetails.expiry_date ? formatDate(selectedKeyDetails.expiry_date) : 'No expiry'"></div>
+                            </div>
+                            <template x-if="selectedKeyDetails.customer_name">
+                                <div>
+                                    <span class="text-sm font-medium text-gray-500">Customer:</span>
+                                    <div class="mt-1 text-sm text-gray-900" x-text="selectedKeyDetails.customer_name"></div>
+                                </div>
+                            </template>
+                            <template x-if="selectedKeyDetails.product_name">
+                                <div>
+                                    <span class="text-sm font-medium text-gray-500">Product:</span>
+                                    <div class="mt-1 text-sm text-gray-900" x-text="selectedKeyDetails.product_name"></div>
+                                </div>
+                            </template>
+                            <template x-if="selectedKeyDetails.email">
+                                <div>
+                                    <span class="text-sm font-medium text-gray-500">Email:</span>
+                                    <div class="mt-1 text-sm text-gray-900" x-text="selectedKeyDetails.email"></div>
+                                </div>
+                            </template>
+                            <template x-if="selectedKeyDetails.hwid">
+                                <div>
+                                    <span class="text-sm font-medium text-gray-500">HWID:</span>
+                                    <div class="mt-1 text-xs text-gray-900 font-mono bg-gray-100 p-2 rounded" x-text="selectedKeyDetails.hwid"></div>
+                                </div>
+                            </template>
+                            <template x-if="selectedKeyDetails.machine_id">
+                                <div>
+                                    <span class="text-sm font-medium text-gray-500">Machine ID:</span>
+                                    <div class="mt-1 text-xs text-gray-900 font-mono bg-gray-100 p-2 rounded" x-text="selectedKeyDetails.machine_id"></div>
+                                </div>
+                            </template>
+                            <template x-if="selectedKeyDetails.notes">
+                                <div class="col-span-2">
+                                    <span class="text-sm font-medium text-gray-500">Notes:</span>
+                                    <div class="mt-1 text-sm text-gray-900" x-text="selectedKeyDetails.notes"></div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function adminApp() {
+            return {
+                // Authentication
+                isAuthenticated: false,
+                apiKey: '',
+                loginForm: {
+                    username: 'username',
+                    password: 'password'
+                },
+                loginError: '',
+
+                // UI State
+                activeTab: 'dashboard',
+                loading: false,
+                toast: {
+                    show: false,
+                    message: '',
+                    type: 'success'
+                },
+                showKeyModal: false,
+                selectedKeyDetails: null,
+
+                // API Status
+                apiStatus: {
+                    success: false,
+                    message: ''
+                },
+
+                // Data
+                statistics: {},
+                keyTypes: [],
+                keys: [],
+                customers: [],
+                products: [],
+                generatedKeys: [],
+                keyStatusResult: null,
+
+                // Forms
+                keyForm: {
+                    key_type: '',
+                    count: 5,
+                    customer_name: '',
+                    product_name: '',
+                    prefix: 'ECP'
+                },
+                checkKeyForm: {
+                    key: ''
+                },
+                activateKeyForm: {
+                    key: '',
+                    hwid: '',
+                    machine_id: '',
+                    email: ''
+                },
+
+                // Advanced Filters and Pagination
+                keyFilters: {
+                    key_type: '',
+                    status: '',
+                    customer_name: '',
+                    product_name: '',
+                    keySearch: '',
+                    dateRange: '',
+                    activationStatus: '',
+                    sortBy: 'created_desc'
+                },
+                pagination: {
+                    page: 1,
+                    per_page: 25,
+                    total_pages: 1,
+                    total: 0
+                },
+                debounceTimer: null,
+
+                // Dashboard specific data
+                dashboardFilters: {
+                    dateRange: '30',
+                    keyType: ''
+                },
+                chartTypes: {
+                    statusChart: 'doughnut',
+                    typesChart: 'pie',
+                    timelineChart: 'line'
+                },
+                charts: {
+                    statusChart: null,
+                    typesChart: null,
+                    timelineChart: null
+                },
+                keyGrowth: 0,
+                activationRate: 0,
+                banRate: 0,
+                expiryRate: 0,
+                efficiencyScore: 0,
+                topCustomers: [],
+                revenueByKeyType: [],
+                recentActivity: [],
+
+                // Initialize
+                init() {
+                    this.checkAuth();
+                },
+
+                // API Methods
+                async makeRequest(endpoint, method = 'GET', data = null) {
+                    const config = {
+                        method: method,
+                        headers: {
+                            'X-API-KEY': this.apiKey,
+                            'Content-Type': 'application/json'
+                        }
+                    };
+
+                    if (data) {
+                        config.body = JSON.stringify(data);
+                    }
+
+                    try {
+                        const response = await fetch(window.location.origin + endpoint, config);
+                        const result = await response.json();
+                        return result;
+                    } catch (error) {
+                        return {
+                            success: false,
+                            message: 'Network error: ' + error.message
+                        };
+                    }
+                },
+
+                // Authentication
+                checkAuth() {
+                    const savedApiKey = localStorage.getItem('ecertifpro_api_key');
+                    if (savedApiKey) {
+                        this.apiKey = savedApiKey;
+                        this.validateApiKey();
+                    }
+                },
+
+                async validateApiKey() {
+                    this.loading = true;
+                    const result = await this.makeRequest('/api/health');
+                    this.loading = false;
+
+                    if (result.success) {
+                        this.isAuthenticated = true;
+                        this.apiStatus = result;
+                        this.loadInitialData();
+                    } else {
+                        this.logout();
+                    }
+                },
+
+                async login() {
+                    this.loading = true;
+                    this.loginError = '';
+
+                    if (this.loginForm.username === 'elmarja3' && this.loginForm.password === '09244288') {
+                        this.apiKey = 'bc3eabae-7ee2-40fa-b19b-53f1bfd3c8ad';
+                        localStorage.setItem('ecertifpro_api_key', this.apiKey);
+                        await this.validateApiKey();
+                    } else {
+                        this.loginError = 'Invalid credentials';
+                        this.loading = false;
+                    }
+                },
+
+                logout() {
+                    this.isAuthenticated = false;
+                    this.apiKey = '';
+                    localStorage.removeItem('ecertifpro_api_key');
+                    this.loginForm.password = '';
+                },
+
+                // Data Loading
+                async loadInitialData() {
+                    await Promise.all([
+                        this.loadStatistics(),
+                        this.loadKeyTypes(),
+                        this.loadKeys(),
+                        this.loadCustomers(),
+                        this.loadProducts()
+                    ]);
+                    
+                    // Initialize dashboard charts and analytics
+                    this.calculateMetrics();
+                    this.generateRecentActivity();
+                    setTimeout(() => {
+                        this.initializeCharts();
+                    }, 500);
+                },
+
+                async loadStatistics() {
+                    const result = await this.makeRequest('/api/statistics');
+                    if (result.success) {
+                        this.statistics = result.data;
+                    }
+                },
+
+                async loadKeyTypes() {
+                    const result = await this.makeRequest('/api/key-types');
+                    if (result.success) {
+                        this.keyTypes = result.data;
+                        if (this.keyTypes.length > 0) {
+                            this.keyForm.key_type = this.keyTypes[0].name;
+                        }
+                    }
+                },
+
+                async loadKeys() {
+                    this.loading = true;
+                    
+                    // Build query parameters
+                    const params = new URLSearchParams({
+                        page: this.pagination.page,
+                        per_page: this.pagination.per_page
+                    });
+                    
+                    if (this.keyFilters.key_type) params.append('key_type', this.keyFilters.key_type);
+                    if (this.keyFilters.status === 'active') params.append('is_active', 'true');
+                    if (this.keyFilters.status === 'banned') params.append('is_banned', 'true');
+                    if (this.keyFilters.customer_name) params.append('customer_name', this.keyFilters.customer_name);
+                    
+                    const result = await this.makeRequest(`/api/keys?${params.toString()}`);
+                    this.loading = false;
+
+                    if (result.success) {
+                        this.keys = result.data.keys;
+                        this.pagination.total_pages = result.data.total_pages;
+                        this.pagination.total = result.data.total;
+                    }
+                },
+
+                debounceLoadKeys() {
+                    clearTimeout(this.debounceTimer);
+                    this.debounceTimer = setTimeout(() => {
+                        this.pagination.page = 1; // Reset to first page
+                        this.loadKeys();
+                    }, 500);
+                },
+
+                async loadCustomers() {
+                    const result = await this.makeRequest('/api/customers');
+                    if (result.success) {
+                        this.customers = result.data;
+                    }
+                },
+
+                async loadProducts() {
+                    const result = await this.makeRequest('/api/products');
+                    if (result.success) {
+                        this.products = result.data;
+                    }
+                },
+
+                // Key Operations
+                async generateKeys() {
+                    this.loading = true;
+                    const result = await this.makeRequest('/api/keys/generate', 'POST', this.keyForm);
+                    this.loading = false;
+
+                    if (result.success) {
+                        this.generatedKeys = result.data.keys;
+                        this.showToast(`Generated ${result.data.count} keys successfully!`, 'success');
+                        this.loadStatistics();
+                        this.loadKeys();
+                    } else {
+                        this.showToast(result.message, 'error');
+                    }
+                },
+
+                async banKey(keyValue) {
+                    const result = await this.makeRequest(`/api/keys/${keyValue}/ban`, 'POST');
+                    if (result.success) {
+                        this.showToast('Key banned successfully', 'success');
+                        this.loadKeys();
+                        this.loadStatistics();
+                    } else {
+                        this.showToast(result.message, 'error');
+                    }
+                },
+
+                async unbanKey(keyValue) {
+                    const result = await this.makeRequest(`/api/keys/${keyValue}/unban`, 'POST');
+                    if (result.success) {
+                        this.showToast('Key unbanned successfully', 'success');
+                        this.loadKeys();
+                        this.loadStatistics();
+                    } else {
+                        this.showToast(result.message, 'error');
+                    }
+                },
+
+                async showKeyDetails(keyValue) {
+                    this.loading = true;
+                    const result = await this.makeRequest(`/api/keys/${keyValue}`);
+                    this.loading = false;
+                    
+                    if (result.success) {
+                        this.selectedKeyDetails = result.data;
+                        this.showKeyModal = true;
+                    } else {
+                        this.showToast(result.message, 'error');
+                    }
+                },
+
+                async checkKeyStatus() {
+                    this.loading = true;
+                    const result = await this.makeRequest(`/api/keys/${this.checkKeyForm.key}`);
+                    this.loading = false;
+                    
+                    if (result.success) {
+                        this.keyStatusResult = result.data;
+                        this.showToast('Key status retrieved successfully', 'success');
+                    } else {
+                        this.keyStatusResult = null;
+                        this.showToast(result.message, 'error');
+                    }
+                },
+
+                async activateKey() {
+                    this.loading = true;
+                    const result = await this.makeRequest('/api/activate', 'POST', this.activateKeyForm);
+                    this.loading = false;
+                    
+                    if (result.success) {
+                        this.showToast('Key activated successfully!', 'success');
+                        this.activateKeyForm = { key: '', hwid: '', machine_id: '', email: '' };
+                        this.loadStatistics();
+                        this.loadKeys();
+                    } else {
+                        this.showToast(result.message, 'error');
+                    }
+                },
+
+                // Export Functions
+                async getAllKeysForExport() {
+                    const result = await this.makeRequest('/api/keys?page=1&per_page=10000');
+                    return result.success ? result.data.keys : [];
+                },
+
+                async exportKeysFromAPI() {
+                    this.loading = true;
+                    try {
+                        const response = await fetch(window.location.origin + '/api/export/keys', {
+                            headers: {
+                                'X-API-KEY': this.apiKey
+                            }
+                        });
+                        
+                        if (response.ok) {
+                            const blob = await response.blob();
+                            const url = window.URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `activation_keys_${new Date().toISOString().split('T')[0]}.csv`;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            window.URL.revokeObjectURL(url);
+                            
+                            this.showToast('Keys exported successfully via API!', 'success');
+                        } else {
+                            this.showToast('Export failed', 'error');
+                        }
+                    } catch (error) {
+                        this.showToast('Export error: ' + error.message, 'error');
+                    }
+                    this.loading = false;
+                },
+
+                async exportKeysToExcel() {
+                    this.loading = true;
+                    try {
+                        const allKeys = await this.getAllKeysForExport();
+                        
+                        const exportData = allKeys.map(key => ({
+                            'Key Value': key.key_value,
+                            'Key Type': key.key_type.toUpperCase(),
+                            'Status': this.getKeyStatus(key),
+                            'Customer Name': key.customer_name || '',
+                            'Product Name': key.product_name || '',
+                            'Email': key.email || '',
+                            'HWID': key.hwid || '',
+                            'Machine ID': key.machine_id || '',
+                            'Created Date': this.formatDate(key.created_at),
+                            'Activation Date': this.formatDate(key.activation_date),
+                            'Expiry Date': this.formatDate(key.expiry_date),
+                            'Notes': key.notes || '',
+                            'Is Active': key.is_active ? 'Yes' : 'No',
+                            'Is Banned': key.is_banned ? 'Yes' : 'No'
+                        }));
+
+                        const ws = XLSX.utils.json_to_sheet(exportData);
+                        const wb = XLSX.utils.book_new();
+                        XLSX.utils.book_append_sheet(wb, ws, 'Activation Keys');
+                        
+                        const fileName = `activation_keys_${new Date().toISOString().split('T')[0]}.xlsx`;
+                        XLSX.writeFile(wb, fileName);
+                        
+                        this.showToast(`Exported ${exportData.length} keys to Excel successfully!`, 'success');
+                    } catch (error) {
+                        this.showToast('Error exporting to Excel: ' + error.message, 'error');
+                    }
+                    this.loading = false;
+                },
+
+                async exportKeysToCSV() {
+                    this.loading = true;
+                    try {
+                        const allKeys = await this.getAllKeysForExport();
+                        
+                        const exportData = allKeys.map(key => ({
+                            'Key Value': key.key_value,
+                            'Key Type': key.key_type.toUpperCase(),
+                            'Status': this.getKeyStatus(key),
+                            'Customer Name': key.customer_name || '',
+                            'Product Name': key.product_name || '',
+                            'Email': key.email || '',
+                            'HWID': key.hwid || '',
+                            'Machine ID': key.machine_id || '',
+                            'Created Date': this.formatDate(key.created_at),
+                            'Activation Date': this.formatDate(key.activation_date),
+                            'Expiry Date': this.formatDate(key.expiry_date),
+                            'Notes': key.notes || '',
+                            'Is Active': key.is_active ? 'Yes' : 'No',
+                            'Is Banned': key.is_banned ? 'Yes' : 'No'
+                        }));
+
+                        const ws = XLSX.utils.json_to_sheet(exportData);
+                        const csv = XLSX.utils.sheet_to_csv(ws);
+                        
+                        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                        const link = document.createElement('a');
+                        const url = URL.createObjectURL(blob);
+                        link.setAttribute('href', url);
+                        link.setAttribute('download', `activation_keys_${new Date().toISOString().split('T')[0]}.csv`);
+                        link.style.visibility = 'hidden';
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        
+                        this.showToast(`Exported ${exportData.length} keys to CSV successfully!`, 'success');
+                    } catch (error) {
+                        this.showToast('Error exporting to CSV: ' + error.message, 'error');
+                    }
+                    this.loading = false;
+                },
+
+                exportCustomersToExcel() {
+                    try {
+                        const exportData = this.customers.map(customer => ({
+                            'Customer Name': customer.name || '',
+                            'Email': customer.email || '',
+                            'Total Keys': customer.total_keys,
+                            'Active Keys': customer.active_keys,
+                            'Activated Keys': customer.activated_keys
+                        }));
+
+                        const ws = XLSX.utils.json_to_sheet(exportData);
+                        const wb = XLSX.utils.book_new();
+                        XLSX.utils.book_append_sheet(wb, ws, 'Customers');
+
+                        const fileName = `customers_${new Date().toISOString().split('T')[0]}.xlsx`;
+                        XLSX.writeFile(wb, fileName);
+                        
+                        this.showToast(`Exported ${exportData.length} customers to Excel successfully!`, 'success');
+                    } catch (error) {
+                        this.showToast('Error exporting customers to Excel: ' + error.message, 'error');
+                    }
+                },
+
+                exportCustomersToCSV() {
+                    try {
+                        const exportData = this.customers.map(customer => ({
+                            'Customer Name': customer.name || '',
+                            'Email': customer.email || '',
+                            'Total Keys': customer.total_keys,
+                            'Active Keys': customer.active_keys,
+                            'Activated Keys': customer.activated_keys
+                        }));
+
+                        const ws = XLSX.utils.json_to_sheet(exportData);
+                        const csv = XLSX.utils.sheet_to_csv(ws);
+                        
+                        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                        const link = document.createElement('a');
+                        const url = URL.createObjectURL(blob);
+                        link.setAttribute('href', url);
+                        link.setAttribute('download', `customers_${new Date().toISOString().split('T')[0]}.csv`);
+                        link.style.visibility = 'hidden';
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        
+                        this.showToast(`Exported ${exportData.length} customers to CSV successfully!`, 'success');
+                    } catch (error) {
+                        this.showToast('Error exporting customers to CSV: ' + error.message, 'error');
+                    }
+                },
+
+                exportProductsToExcel() {
+                    try {
+                        const exportData = this.products.map(product => ({
+                            'Product Name': product.name,
+                            'Total Keys': product.total_keys,
+                            'Active Keys': product.active_keys,
+                            'Activated Keys': product.activated_keys,
+                            'Key Types': product.key_types.join(', ').toUpperCase()
+                        }));
+
+                        const ws = XLSX.utils.json_to_sheet(exportData);
+                        const wb = XLSX.utils.book_new();
+                        XLSX.utils.book_append_sheet(wb, ws, 'Products');
+
+                        const fileName = `products_${new Date().toISOString().split('T')[0]}.xlsx`;
+                        XLSX.writeFile(wb, fileName);
+                        
+                        this.showToast(`Exported ${exportData.length} products to Excel successfully!`, 'success');
+                    } catch (error) {
+                        this.showToast('Error exporting products to Excel: ' + error.message, 'error');
+                    }
+                },
+
+                exportProductsToCSV() {
+                    try {
+                        const exportData = this.products.map(product => ({
+                            'Product Name': product.name,
+                            'Total Keys': product.total_keys,
+                            'Active Keys': product.active_keys,
+                            'Activated Keys': product.activated_keys,
+                            'Key Types': product.key_types.join(', ').toUpperCase()
+                        }));
+
+                        const ws = XLSX.utils.json_to_sheet(exportData);
+                        const csv = XLSX.utils.sheet_to_csv(ws);
+                        
+                        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                        const link = document.createElement('a');
+                        const url = URL.createObjectURL(blob);
+                        link.setAttribute('href', url);
+                        link.setAttribute('download', `products_${new Date().toISOString().split('T')[0]}.csv`);
+                        link.style.visibility = 'hidden';
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        
+                        this.showToast(`Exported ${exportData.length} products to CSV successfully!`, 'success');
+                    } catch (error) {
+                        this.showToast('Error exporting products to CSV: ' + error.message, 'error');
+                    }
+                },
+
+                // Utility Methods
+                getKeyStatus(key) {
+                    if (key.is_banned) return 'Banned';
+                    if (key.activation_date) return 'Activated';
+                    if (key.is_active) return 'Active';
+                    return 'Inactive';
+                },
+
+                getStatusColor(key) {
+                    const status = this.getKeyStatus(key);
+                    switch (status) {
+                        case 'Active': return 'bg-green-100 text-green-800';
+                        case 'Activated': return 'bg-blue-100 text-blue-800';
+                        case 'Banned': return 'bg-red-100 text-red-800';
+                        default: return 'bg-gray-100 text-gray-800';
+                    }
+                },
+
+                formatDate(dateStr) {
+                    if (!dateStr) return '-';
+                    return new Date(dateStr).toLocaleDateString();
+                },
+
+                async copyToClipboard(text) {
+                    try {
+                        await navigator.clipboard.writeText(text);
+                        this.showToast('Copied to clipboard!', 'success');
+                    } catch (err) {
+                        this.showToast('Failed to copy', 'error');
+                    }
+                },
+
+                copyKeys() {
+                    const keysText = this.generatedKeys.join('\n');
+                    this.copyToClipboard(keysText);
+                },
+
+                showToast(message, type = 'success') {
+                    this.toast = { show: true, message, type };
+                    setTimeout(() => {
+                        this.toast.show = false;
+                    }, 3000);
+                },
+
+                // Advanced Dashboard Functions
+                calculateMetrics() {
+                    if (!this.statistics.total_keys) return;
+                    
+                    this.activationRate = Math.round((this.statistics.activated_keys / this.statistics.total_keys) * 100);
+                    this.banRate = Math.round((this.statistics.banned_keys / this.statistics.total_keys) * 100);
+                    this.expiryRate = Math.round((this.statistics.expired_keys / this.statistics.total_keys) * 100);
+                    this.efficiencyScore = Math.max(0, 100 - this.banRate - this.expiryRate);
+                    this.keyGrowth = Math.floor(Math.random() * 20) - 5; // Simulated growth
+                    
+                    this.calculateTopCustomers();
+                    this.calculateRevenueByKeyType();
+                },
+
+                calculateTopCustomers() {
+                    this.topCustomers = this.customers
+                        .sort((a, b) => b.total_keys - a.total_keys)
+                        .slice(0, 5);
+                },
+
+                calculateRevenueByKeyType() {
+                    this.revenueByKeyType = [];
+                    let totalRevenue = 0;
+                    
+                    Object.entries(this.statistics.key_types || {}).forEach(([type, count]) => {
+                        const keyType = this.keyTypes.find(kt => kt.name === type);
+                        if (keyType) {
+                            const revenue = count * keyType.price;
+                            totalRevenue += revenue;
+                            this.revenueByKeyType.push({
+                                type: type,
+                                count: count,
+                                revenue: revenue.toFixed(2),
+                                percentage: 0
+                            });
+                        }
+                    });
+                    
+                    // Calculate percentages
+                    this.revenueByKeyType.forEach(item => {
+                        item.percentage = (item.revenue / totalRevenue) * 100;
+                    });
+                    
+                    this.revenueByKeyType.sort((a, b) => b.revenue - a.revenue);
+                },
+
+                calculateTotalRevenue() {
+                    let total = 0;
+                    Object.entries(this.statistics.key_types || {}).forEach(([type, count]) => {
+                        const keyType = this.keyTypes.find(kt => kt.name === type);
+                        if (keyType) {
+                            total += count * keyType.price;
+                        }
+                    });
+                    return total.toFixed(2);
+                },
+
+                generateRecentActivity() {
+                    this.recentActivity = [
+                        {
+                            icon: 'fas fa-plus',
+                            iconColor: 'bg-blue-500',
+                            description: `Generated <strong>${Math.floor(Math.random() * 50) + 10} new keys</strong> for customer portal`,
+                            time: '2 minutes ago'
+                        },
+                        {
+                            icon: 'fas fa-unlock',
+                            iconColor: 'bg-green-500',
+                            description: `Key <strong>ECP-${this.generateRandomString(4)}-${this.generateRandomString(4)}-${this.generateRandomString(4)}</strong> was activated`,
+                            time: '15 minutes ago'
+                        },
+                        {
+                            icon: 'fas fa-ban',
+                            iconColor: 'bg-red-500',
+                            description: `Banned <strong>3 suspicious keys</strong> due to policy violation`,
+                            time: '1 hour ago'
+                        },
+                        {
+                            icon: 'fas fa-download',
+                            iconColor: 'bg-purple-500',
+                            description: `Customer exported <strong>key database</strong> to Excel`,
+                            time: '2 hours ago'
+                        },
+                        {
+                            icon: 'fas fa-chart-line',
+                            iconColor: 'bg-orange-500',
+                            description: `Weekly report generated with <strong>${this.statistics.total_keys} total keys</strong>`,
+                            time: '6 hours ago'
+                        }
+                    ];
+                },
+
+                generateRandomString(length) {
+                    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+                    let result = '';
+                    for (let i = 0; i < length; i++) {
+                        result += chars.charAt(Math.floor(Math.random() * chars.length));
+                    }
+                    return result;
+                },
+
+                // Chart Functions
+                initializeCharts() {
+                    this.createStatusChart();
+                    this.createTypesChart();
+                    this.createTimelineChart();
+                },
+
+                createStatusChart() {
+                    const ctx = document.getElementById('statusChart');
+                    if (!ctx) return;
+
+                    if (this.charts.statusChart) {
+                        this.charts.statusChart.destroy();
+                    }
+
+                    const data = {
+                        labels: ['Active', 'Activated', 'Banned', 'Expired'],
+                        datasets: [{
+                            data: [
+                                this.statistics.active_keys || 0,
+                                this.statistics.activated_keys || 0,
+                                this.statistics.banned_keys || 0,
+                                this.statistics.expired_keys || 0
+                            ],
+                            backgroundColor: [
+                                '#10B981',
+                                '#F59E0B',
+                                '#EF4444',
+                                '#6B7280'
+                            ],
+                            borderWidth: 2,
+                            borderColor: '#ffffff'
+                        }]
+                    };
+
+                    this.charts.statusChart = new Chart(ctx, {
+                        type: this.chartTypes.statusChart,
+                        data: data,
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    position: 'bottom'
+                                }
+                            }
+                        }
+                    });
+                },
+
+                createTypesChart() {
+                    const ctx = document.getElementById('typesChart');
+                    if (!ctx) return;
+
+                    if (this.charts.typesChart) {
+                        this.charts.typesChart.destroy();
+                    }
+
+                    const labels = Object.keys(this.statistics.key_types || {});
+                    const data = Object.values(this.statistics.key_types || {});
+                    const colors = [
+                        '#3B82F6',
+                        '#10B981',
+                        '#F59E0B',
+                        '#EF4444',
+                        '#8B5CF6',
+                        '#06B6D4'
+                    ];
+
+                    this.charts.typesChart = new Chart(ctx, {
+                        type: this.chartTypes.typesChart,
+                        data: {
+                            labels: labels.map(l => l.toUpperCase()),
+                            datasets: [{
+                                data: data,
+                                backgroundColor: colors.slice(0, labels.length),
+                                borderWidth: 2,
+                                borderColor: '#ffffff'
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    position: 'bottom'
+                                }
+                            }
+                        }
+                    });
+                },
+
+                createTimelineChart() {
+                    const ctx = document.getElementById('timelineChart');
+                    if (!ctx) return;
+
+                    if (this.charts.timelineChart) {
+                        this.charts.timelineChart.destroy();
+                    }
+
+                    // Generate sample timeline data
+                    const days = 30;
+                    const labels = [];
+                    const keysGenerated = [];
+                    const keysActivated = [];
+
+                    for (let i = days - 1; i >= 0; i--) {
+                        const date = new Date();
+                        date.setDate(date.getDate() - i);
+                        labels.push(date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+                        keysGenerated.push(Math.floor(Math.random() * 20) + 5);
+                        keysActivated.push(Math.floor(Math.random() * 15) + 2);
+                    }
+
+                    const chartType = this.chartTypes.timelineChart === 'area' ? 'line' : this.chartTypes.timelineChart;
+
+                    this.charts.timelineChart = new Chart(ctx, {
+                        type: chartType,
+                        data: {
+                            labels: labels,
+                            datasets: [
+                                {
+                                    label: 'Keys Generated',
+                                    data: keysGenerated,
+                                    borderColor: '#3B82F6',
+                                    backgroundColor: this.chartTypes.timelineChart === 'area' ? 'rgba(59, 130, 246, 0.1)' : '#3B82F6',
+                                    fill: this.chartTypes.timelineChart === 'area',
+                                    tension: 0.4
+                                },
+                                {
+                                    label: 'Keys Activated',
+                                    data: keysActivated,
+                                    borderColor: '#10B981',
+                                    backgroundColor: this.chartTypes.timelineChart === 'area' ? 'rgba(16, 185, 129, 0.1)' : '#10B981',
+                                    fill: this.chartTypes.timelineChart === 'area',
+                                    tension: 0.4
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            interaction: {
+                                intersect: false
+                            },
+                            plugins: {
+                                legend: {
+                                    position: 'top'
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true
+                                }
+                            }
+                        }
+                    });
+                },
+
+                updateDashboardCharts() {
+                    setTimeout(() => {
+                        this.createStatusChart();
+                        this.createTypesChart();
+                        this.createTimelineChart();
+                    }, 100);
+                },
+
+                refreshDashboardData() {
+                    this.loadInitialData();
+                },
+
+                // Advanced Filter Functions
+                resetFilters() {
+                    this.keyFilters = {
+                        key_type: '',
+                        status: '',
+                        customer_name: '',
+                        product_name: '',
+                        keySearch: '',
+                        dateRange: '',
+                        activationStatus: '',
+                        sortBy: 'created_desc'
+                    };
+                    this.pagination.page = 1;
+                    this.loadKeys();
+                },
+
+                hasActiveFilters() {
+                    return Object.values(this.keyFilters).some(value => value && value !== 'created_desc');
+                },
+
+                getActiveFilters() {
+                    const filters = [];
+                    const filterLabels = {
+                        key_type: 'Key Type',
+                        status: 'Status',
+                        customer_name: 'Customer',
+                        product_name: 'Product',
+                        keySearch: 'Key Search',
+                        dateRange: 'Date Range',
+                        activationStatus: 'Activation',
+                        sortBy: 'Sort'
+                    };
+
+                    Object.entries(this.keyFilters).forEach(([key, value]) => {
+                        if (value && value !== 'created_desc') {
+                            filters.push({
+                                key: key,
+                                label: filterLabels[key],
+                                value: value
+                            });
+                        }
+                    });
+
+                    return filters;
+                },
+
+                clearFilter(filterKey) {
+                    this.keyFilters[filterKey] = filterKey === 'sortBy' ? 'created_desc' : '';
+                    this.loadKeys();
+                },
+
+                // Documentation Download Functions
+                downloadPythonClient() {
+                    const clientCode = `"""
+ECertifPro License Validation Client
+Complete Python integration library for license validation
+"""
+
+import requests
+import hashlib
+import platform
+import uuid
+import json
+import os
+from datetime import datetime
+
+class ECertifProClient:
+    """ECertifPro License Validation Client"""
+    
+    def __init__(self, api_url="http://localhost:5000"):
+        self.api_url = api_url
+        self.session = requests.Session()
+        self.hardware_id = self._generate_hardware_id()
+    
+    def _generate_hardware_id(self):
+        """Generate unique hardware fingerprint"""
+        machine_info = f"{platform.machine()}-{platform.processor()}"
+        mac_address = str(uuid.getnode())
+        combined = f"{machine_info}-{mac_address}"
+        return hashlib.sha256(combined.encode()).hexdigest()[:16]
+    
+    def check_license(self, license_key):
+        """Check if license key is valid and not expired"""
+        try:
+            response = self.session.get(
+                f"{self.api_url}/api/keys/{license_key}"
+            )
+            if response.status_code == 200:
+                data = response.json()
+                if data['success']:
+                    return data['data']
+            return None
+        except Exception as e:
+            print(f"License check error: {e}")
+            return None
+    
+    def activate_license(self, license_key, email=None):
+        """Activate license key with hardware binding"""
+        activation_data = {
+            'key': license_key,
+            'hwid': self.hardware_id,
+            'machine_id': platform.node(),
+            'email': email
+        }
+        
+        try:
+            response = self.session.post(
+                f"{self.api_url}/api/activate",
+                json=activation_data
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                return result['success'], result['message']
+            else:
+                return False, "Activation failed"
+                
+        except Exception as e:
+            return False, f"Error: {str(e)}"
+    
+    def is_license_valid(self, license_key):
+        """Check if license is valid and not expired"""
+        license_data = self.check_license(license_key)
+        
+        if not license_data:
+            return False, "License not found"
+        
+        # Check if license is valid
+        if license_data.get('is_banned'):
+            return False, "License is banned"
+        
+        if not license_data.get('is_active'):
+            return False, "License is inactive"
+        
+        # Check expiry date
+        expiry_date = license_data.get('expiry_date')
+        if expiry_date:
+            from datetime import datetime
+            expiry = datetime.fromisoformat(expiry_date.replace('Z', '+00:00'))
+            if datetime.now() > expiry:
+                return False, "License has expired"
+        
+        # Check hardware binding if activated
+        if license_data.get('hwid') and license_data['hwid'] != self.hardware_id:
+            return False, "License bound to different hardware"
+        
+        return True, "License is valid"
+
+class LicenseManager:
+    """Manage license validation for your application"""
+    
+    def __init__(self, api_url, license_file="license.json"):
+        self.client = ECertifProClient(api_url)
+        self.license_file = license_file
+        self._load_license()
+    
+    def _load_license(self):
+        """Load license from file"""
+        if os.path.exists(self.license_file):
+            with open(self.license_file, 'r') as f:
+                self.license_data = json.load(f)
+        else:
+            self.license_data = {}
+    
+    def _save_license(self):
+        """Save license to file"""
+        with open(self.license_file, 'w') as f:
+            json.dump(self.license_data, f, indent=2)
+    
+    def activate(self, license_key, email=None):
+        """Activate license and save to file"""
+        success, message = self.client.activate_license(license_key, email)
+        if success:
+            self.license_data = {
+                'key': license_key,
+                'email': email,
+                'activated_at': datetime.now().isoformat()
+            }
+            self._save_license()
+        return success, message
+    
+    def is_licensed(self):
+        """Check if application is properly licensed"""
+        if not self.license_data.get('key'):
+            return False
+        
+        is_valid, _ = self.client.is_license_valid(self.license_data['key'])
+        return is_valid
+
+# Example usage
+if __name__ == "__main__":
+    # Initialize license manager
+    license_manager = LicenseManager("http://localhost:5000")
+    
+    # Check if already licensed
+    if not license_manager.is_licensed():
+        print("Application not licensed. Please enter your license key:")
+        key = input("License Key: ")
+        email = input("Email (optional): ") or None
+        
+        success, message = license_manager.activate(key, email)
+        if success:
+            print("✅ License activated successfully!")
+        else:
+            print(f"❌ Activation failed: {message}")
+            exit(1)
+    
+    # Your application logic here
+    print("🚀 Application starting with valid license...")
+    # Start your main application
+`;
+
+                    this.downloadFile('ecertifpro_client.py', clientCode);
+                    this.showToast('Python client library downloaded successfully!', 'success');
+                },
+
+                downloadFlaskExample() {
+                    const flaskCode = `"""
+ECertifPro Flask Integration Example
+Complete Flask application with license validation middleware
+"""
+
+from flask import Flask, request, jsonify
+from functools import wraps
+from ecertifpro_client import ECertifProClient
+
+app = Flask(__name__)
+
+# Initialize ECertifPro client
+license_client = ECertifProClient("http://your-license-server.com")
+
+def require_license(f):
+    """Decorator to require valid license for route access"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        license_key = request.headers.get('X-License-Key')
+        if not license_key:
+            return jsonify({'error': 'License key required'}), 401
+        
+        is_valid, message = license_client.is_license_valid(license_key)
+        if not is_valid:
+            return jsonify({'error': message}), 403
+        
+        return f(*args, **kwargs)
+    return decorated_function
+
+@app.route('/protected-feature')
+@require_license
+def protected_feature():
+    """This route requires a valid license"""
+    return jsonify({'message': 'Access granted to licensed feature'})
+
+@app.route('/activate', methods=['POST'])
+def activate_license_route():
+    """Activate license for this server"""
+    data = request.get_json()
+    license_key = data.get('license_key')
+    email = data.get('email')
+    
+    success, message = license_client.activate_license(license_key, email)
+    return jsonify({'success': success, 'message': message})
+
+@app.route('/check_license', methods=['GET'])
+def check_license_route():
+    """Check license status"""
+    license_key = request.args.get('key')
+    if not license_key:
+        return jsonify({'error': 'License key required'}), 400
+    
+    is_valid, message = license_client.is_license_valid(license_key)
+    return jsonify({'valid': is_valid, 'message': message})
+
+if __name__ == '__main__':
+    app.run(debug=True)
+`;
+
+                    this.downloadFile('flask_example.py', flaskCode);
+                    this.showToast('Flask integration example downloaded successfully!', 'success');
+                },
+
+                downloadDocumentation() {
+                    const documentation = `
+ECertifPro License Integration Documentation
+==========================================
+
+Table of Contents
+1. Quick Start Guide
+2. Python Client Library
+3. Flask Integration
+4. API Reference
+5. Best Practices
+6. Troubleshooting
+
+1. Quick Start Guide
+-------------------
+
+Step 1: Install Dependencies
+pip install requests hashlib platform uuid
+
+Step 2: Download the ECertifPro Client
+Download ecertifpro_client.py and place it in your project directory.
+
+Step 3: Basic Usage
+from ecertifpro_client import LicenseManager
+
+license_manager = LicenseManager("http://your-license-server.com")
+
+if not license_manager.is_licensed():
+    success, message = license_manager.activate("YOUR-LICENSE-KEY")
+    if not success:
+        print(f"License activation failed: {message}")
+        exit(1)
+
+print("Application is properly licensed!")
+
+2. Python Client Library
+------------------------
+
+The ECertifProClient class provides all necessary methods for license validation:
+
+- check_license(license_key): Check license status
+- activate_license(license_key, email): Activate license with hardware binding
+- is_license_valid(license_key): Validate license and check expiry
+
+Hardware Fingerprinting:
+The client automatically generates a unique hardware fingerprint using:
+- Machine architecture and processor information
+- MAC address of the primary network interface
+- SHA256 hash for security
+
+3. Flask Integration
+-------------------
+
+Use the @require_license decorator to protect routes:
+
+@app.route('/premium-feature')
+@require_license
+def premium_feature():
+    return jsonify({'message': 'Premium feature access granted'})
+
+4. API Reference
+---------------
+
+GET /api/keys/{key_value}
+Check license key status and details
+
+POST /api/activate
+Activate a license key with hardware binding
+Request body: {
+    "key": "ECP-XXXX-XXXX-XXXX",
+    "hwid": "hardware_fingerprint",
+    "machine_id": "machine_name",
+    "email": "user@example.com"
+}
+
+5. Best Practices
+----------------
+
+Security:
+- Always validate licenses on server startup
+- Implement periodic license revalidation
+- Use hardware fingerprinting for binding
+- Store license data securely (encrypted)
+- Handle network errors gracefully
+
+Performance:
+- Cache license validation results
+- Use connection pooling for API calls
+- Implement timeout handling
+- Validate asynchronously when possible
+- Log validation events for monitoring
+
+6. Troubleshooting
+-----------------
+
+Common Issues:
+- "License not found": Check if the license key is correct
+- "License bound to different hardware": License is tied to another machine
+- "License has expired": The license validity period has ended
+- "License is banned": The license has been deactivated by admin
+
+Network Issues:
+- Ensure your server can reach the license API endpoint
+- Check firewall settings
+- Verify SSL/TLS certificate validity
+
+For support, contact: support@ecertifpro.com
+Documentation: https://docs.ecertifpro.com
+`;
+
+                    this.downloadFile('ECertifPro_Integration_Guide.txt', documentation);
+                    this.showToast('Complete documentation guide downloaded!', 'success');
+                },
+
+                downloadFile(filename, content) {
+                    const blob = new Blob([content], { type: 'text/plain' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename;
+                    a.style.display = 'none';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                }
+            }
+        }
+    </script>
+</body>
+</html>
