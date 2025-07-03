@@ -11,7 +11,6 @@ import uuid
 from functools import wraps
 import logging
 import time
-import backup_db  # This would be a custom module for backups
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
