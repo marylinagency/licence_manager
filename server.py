@@ -9,97 +9,147 @@ import pandas as pd
 from werkzeug.security import generate_password_hash, check_password_hash
 import uuid
 from functools import wraps
+import atexit
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'hfXFDFdfdfdf5dg52fgfgfdkVCGFgkdf5'
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'hfXFDFdfdfdf5dg52fgfgfdkVCGFgkdf5')
 CORS(app)  # Enable CORS for all routes
-DATABASE = 'activation_keys.db'
 
-# Database initialization
-def init_db():
+# تحسين مسار قاعدة البيانات لتعمل مع Render
+DATABASE = os.path.join(os.getcwd(), 'instance', 'activation_keys.db')
+
+# إنشاء مجلد instance إذا لم يكن موجودًا
+os.makedirs(os.path.join(os.getcwd(), 'instance'), exist_ok=True)
+
+# إدارة اتصالات قاعدة البيانات
+def get_db_connection():
     conn = sqlite3.connect(DATABASE)
-    cursor = conn.cursor()
+    conn.row_factory = sqlite3.Row
+    return conn
 
-    # Create tables if they don't exist
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS activation_keys (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        key_value TEXT UNIQUE NOT NULL,
-        key_type TEXT NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        is_active BOOLEAN DEFAULT 1,
-        is_banned BOOLEAN DEFAULT 0,
-        activation_date TIMESTAMP NULL,
-        hwid TEXT NULL,
-        machine_id TEXT NULL,
-        expiry_date TIMESTAMP NULL,
-        email TEXT NULL,
-        notes TEXT NULL,
-        customer_name TEXT NULL,
-        product_name TEXT NULL
-    )
-    ''')
-
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS admin_users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE NOT NULL,
-        password_hash TEXT NOT NULL,
-        api_key TEXT UNIQUE NULL,
-        is_superadmin BOOLEAN DEFAULT 0,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        last_login TIMESTAMP NULL
-    )
-    ''')
-
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS key_types (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT UNIQUE NOT NULL,
-        duration_days INTEGER NOT NULL,
-        description TEXT NULL,
-        price REAL NULL,
-        is_available BOOLEAN DEFAULT 1
-    )
-    ''')
-
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS products (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT UNIQUE NOT NULL,
-        description TEXT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        is_active BOOLEAN DEFAULT 1
-    )
-    ''')
-
-    # Insert default key types if they don't exist
-    default_key_types = [
-        ('7day', 7, '7 Day License', 9.99),
-        ('month', 30, '1 Month License', 29.99),
-        ('6month', 180, '6 Month License', 149.99),
-        ('1year', 365, '1 Year License', 249.99),
-        ('lifetime', 36500, 'Lifetime License', 499.99)
-    ]
-
-    for key_type in default_key_types:
-        cursor.execute('''
-        INSERT OR IGNORE INTO key_types (name, duration_days, description, price)
-        VALUES (?, ?, ?, ?)
-        ''', key_type)
-
-    # Create default admin if none exists
-    cursor.execute('SELECT COUNT(*) FROM admin_users')
-    if cursor.fetchone()[0] == 0:
-        password_hash = generate_password_hash('admin')
-        api_key = 'bc3eabae-7ee2-40fa-b19b-53f1bfd3c8ad'  # Fixed API key for demo
-        cursor.execute('''
-        INSERT INTO admin_users (username, password_hash, api_key, is_superadmin) 
-        VALUES (?, ?, ?, ?)
-        ''', ('admin', password_hash, api_key, 1))
-
-    conn.commit()
+# إغلاق جميع اتصالات قاعدة البيانات عند إنهاء التطبيق
+def close_db_connections():
+    conn = get_db_connection()
     conn.close()
+
+atexit.register(close_db_connections)
+
+# Database initialization with error handling
+def init_db():
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Enable foreign key constraints
+        cursor.execute('PRAGMA foreign_keys = ON')
+
+        # Create tables if they don't exist with error handling
+        tables = {
+            'activation_keys': '''
+            CREATE TABLE IF NOT EXISTS activation_keys (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                key_value TEXT UNIQUE NOT NULL,
+                key_type TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                is_active BOOLEAN DEFAULT 1,
+                is_banned BOOLEAN DEFAULT 0,
+                activation_date TIMESTAMP NULL,
+                hwid TEXT NULL,
+                machine_id TEXT NULL,
+                expiry_date TIMESTAMP NULL,
+                email TEXT NULL,
+                notes TEXT NULL,
+                customer_name TEXT NULL,
+                product_name TEXT NULL
+            )
+            ''',
+            'admin_users': '''
+            CREATE TABLE IF NOT EXISTS admin_users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                api_key TEXT UNIQUE NULL,
+                is_superadmin BOOLEAN DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_login TIMESTAMP NULL
+            )
+            ''',
+            'key_types': '''
+            CREATE TABLE IF NOT EXISTS key_types (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT UNIQUE NOT NULL,
+                duration_days INTEGER NOT NULL,
+                description TEXT NULL,
+                price REAL NULL,
+                is_available BOOLEAN DEFAULT 1
+            )
+            ''',
+            'products': '''
+            CREATE TABLE IF NOT EXISTS products (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT UNIQUE NOT NULL,
+                description TEXT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                is_active BOOLEAN DEFAULT 1
+            )
+            '''
+        }
+
+        for table_name, table_sql in tables.items():
+            try:
+                cursor.execute(table_sql)
+            except sqlite3.Error as e:
+                print(f"Error creating table {table_name}: {e}")
+                # Attempt to recover by dropping and recreating the table
+                if "already exists" in str(e):
+                    cursor.execute(f"DROP TABLE IF EXISTS {table_name}")
+                    cursor.execute(table_sql)
+                    print(f"Recovered table {table_name} by recreating it")
+
+        # Insert default key types if they don't exist
+        default_key_types = [
+            ('7day', 7, '7 Day License', 9.99),
+            ('month', 30, '1 Month License', 29.99),
+            ('6month', 180, '6 Month License', 149.99),
+            ('1year', 365, '1 Year License', 249.99),
+            ('lifetime', 36500, 'Lifetime License', 499.99)
+        ]
+
+        for key_type in default_key_types:
+            try:
+                cursor.execute('''
+                INSERT OR IGNORE INTO key_types (name, duration_days, description, price)
+                VALUES (?, ?, ?, ?)
+                ''', key_type)
+            except sqlite3.Error as e:
+                print(f"Error inserting key type {key_type[0]}: {e}")
+
+        # Create default admin if none exists
+        cursor.execute('SELECT COUNT(*) FROM admin_users')
+        if cursor.fetchone()[0] == 0:
+            password_hash = generate_password_hash(os.environ.get('ADMIN_PASSWORD', 'admin'))
+            api_key = os.environ.get('ADMIN_API_KEY', 'bc3eabae-7ee2-40fa-b19b-53f1bfd3c8ad')
+            try:
+                cursor.execute('''
+                INSERT INTO admin_users (username, password_hash, api_key, is_superadmin) 
+                VALUES (?, ?, ?, ?)
+                ''', ('admin', password_hash, api_key, 1))
+            except sqlite3.Error as e:
+                print(f"Error creating default admin: {e}")
+
+        conn.commit()
+    except sqlite3.Error as e:
+        print(f"Database initialization failed: {e}")
+        # Attempt to recover by recreating the database file
+        try:
+            if os.path.exists(DATABASE):
+                os.remove(DATABASE)
+            init_db()  # Recursive call to try again
+        except Exception as e:
+            print(f"Critical error: Could not initialize database: {e}")
+            raise
+    finally:
+        conn.close()
 
 # Generate a secure API key
 def generate_api_key():
@@ -107,7 +157,7 @@ def generate_api_key():
 
 # Admin user management
 def create_admin(username, password, is_superadmin=False):
-    conn = sqlite3.connect(DATABASE)
+    conn = get_db_connection()
     cursor = conn.cursor()
     password_hash = generate_password_hash(password)
     api_key = generate_api_key()
@@ -124,7 +174,7 @@ def create_admin(username, password, is_superadmin=False):
         conn.close()
 
 def verify_admin(username, password):
-    conn = sqlite3.connect(DATABASE)
+    conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('''
     SELECT password_hash, api_key FROM admin_users 
@@ -133,9 +183,9 @@ def verify_admin(username, password):
     result = cursor.fetchone()
     conn.close()
 
-    if result and check_password_hash(result[0], password):
+    if result and check_password_hash(result['password_hash'], password):
         # Update last login time
-        conn = sqlite3.connect(DATABASE)
+        conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute('''
         UPDATE admin_users 
@@ -144,11 +194,11 @@ def verify_admin(username, password):
         ''', (username,))
         conn.commit()
         conn.close()
-        return result[1]  # Return API key
+        return result['api_key']  # Return API key
     return None
 
 def get_admin_by_api_key(api_key):
-    conn = sqlite3.connect(DATABASE)
+    conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('''
     SELECT username, is_superadmin 
@@ -174,7 +224,7 @@ def superadmin_required(f):
     def wrapper(*args, **kwargs):
         api_key = request.headers.get('X-API-KEY')
         admin_info = get_admin_by_api_key(api_key) if api_key else None
-        if not admin_info or not admin_info[1]:  # Check is_superadmin flag
+        if not admin_info or not admin_info['is_superadmin']:
             return jsonify({'success': False, 'message': 'Superadmin privileges required'}), 403
         return f(*args, **kwargs)
     return wrapper
@@ -188,7 +238,7 @@ def generate_key(prefix="ECP"):
 
 def calculate_expiry_date(key_type):
     """Calculate expiry date based on key type"""
-    conn = sqlite3.connect(DATABASE)
+    conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('''
     SELECT duration_days FROM key_types WHERE name = ?
@@ -197,12 +247,12 @@ def calculate_expiry_date(key_type):
     conn.close()
 
     if result:
-        return datetime.now() + timedelta(days=result[0])
+        return datetime.now() + timedelta(days=result['duration_days'])
     return None
 
 # Database operations
 def add_keys_to_db(keys, key_type, customer_name=None, product_name=None, notes=None):
-    conn = sqlite3.connect(DATABASE)
+    conn = get_db_connection()
     cursor = conn.cursor()
     expiry_date = calculate_expiry_date(key_type)
 
@@ -221,7 +271,7 @@ def add_keys_to_db(keys, key_type, customer_name=None, product_name=None, notes=
     conn.close()
 
 def ban_key(key_value):
-    conn = sqlite3.connect(DATABASE)
+    conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('''
     UPDATE activation_keys 
@@ -234,7 +284,7 @@ def ban_key(key_value):
     return affected > 0
 
 def unban_key(key_value):
-    conn = sqlite3.connect(DATABASE)
+    conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('''
     UPDATE activation_keys 
@@ -247,7 +297,7 @@ def unban_key(key_value):
     return affected > 0
 
 def activate_key(key_value, hwid=None, machine_id=None, email=None):
-    conn = sqlite3.connect(DATABASE)
+    conn = get_db_connection()
     cursor = conn.cursor()
 
     # Check if key exists and is not banned
@@ -262,7 +312,10 @@ def activate_key(key_value, hwid=None, machine_id=None, email=None):
         conn.close()
         return {'status': 'error', 'message': 'Key not found'}
 
-    is_banned, is_active, activation_date, key_type = result
+    is_banned = result['is_banned']
+    is_active = result['is_active']
+    activation_date = result['activation_date']
+    key_type = result['key_type']
 
     if is_banned:
         conn.close()
@@ -304,7 +357,7 @@ def parse_datetime(dt_str):
             return None
 
 def check_key_status(key_value):
-    conn = sqlite3.connect(DATABASE)
+    conn = get_db_connection()
     cursor = conn.cursor()
 
     cursor.execute('''
@@ -333,30 +386,30 @@ def check_key_status(key_value):
         return {'status': 'error', 'message': 'Key not found'}
 
     # Parse datetime fields
-    activation_date = parse_datetime(result[4])
-    expiry_date = parse_datetime(result[5])
-    created_at = parse_datetime(result[12])
+    activation_date = parse_datetime(result['activation_date'])
+    expiry_date = parse_datetime(result['expiry_date'])
+    created_at = parse_datetime(result['created_at'])
 
     # Check if key is valid
     is_valid = (
-        not bool(result[3]) and  # not banned
-        bool(result[2]) and      # is active
+        not bool(result['is_banned']) and  # not banned
+        bool(result['is_active']) and      # is active
         (not expiry_date or expiry_date > datetime.now())  # not expired
     )
 
     key_data = {
-        'key': result[0],
-        'type': result[1],
-        'is_active': bool(result[2]),
-        'is_banned': bool(result[3]),
+        'key': result['key_value'],
+        'type': result['key_type'],
+        'is_active': bool(result['is_active']),
+        'is_banned': bool(result['is_banned']),
         'activation_date': activation_date.isoformat() if activation_date else None,
         'expiry_date': expiry_date.isoformat() if expiry_date else None,
-        'hwid': result[6],
-        'machine_id': result[7],
-        'email': result[8],
-        'customer_name': result[9],
-        'product_name': result[10],
-        'notes': result[11],
+        'hwid': result['hwid'],
+        'machine_id': result['machine_id'],
+        'email': result['email'],
+        'customer_name': result['customer_name'],
+        'product_name': result['product_name'],
+        'notes': result['notes'],
         'created_at': created_at.isoformat() if created_at else None,
         'is_valid': is_valid
     }
@@ -364,7 +417,7 @@ def check_key_status(key_value):
     return {'status': 'success', 'data': key_data}
 
 def get_all_keys(page=1, per_page=100, filters=None):
-    conn = sqlite3.connect(DATABASE)
+    conn = get_db_connection()
     cursor = conn.cursor()
 
     # Base query
@@ -434,19 +487,19 @@ def get_all_keys(page=1, per_page=100, filters=None):
     keys = []
     for result in results:
         keys.append({
-            'key_value': result[0],
-            'key_type': result[1],
-            'is_active': bool(result[2]),
-            'is_banned': bool(result[3]),
-            'activation_date': result[4],
-            'expiry_date': result[5],
-            'hwid': result[6],
-            'machine_id': result[7],
-            'email': result[8],
-            'customer_name': result[9],
-            'product_name': result[10],
-            'notes': result[11],
-            'created_at': result[12]
+            'key_value': result['key_value'],
+            'key_type': result['key_type'],
+            'is_active': bool(result['is_active']),
+            'is_banned': bool(result['is_banned']),
+            'activation_date': result['activation_date'],
+            'expiry_date': result['expiry_date'],
+            'hwid': result['hwid'],
+            'machine_id': result['machine_id'],
+            'email': result['email'],
+            'customer_name': result['customer_name'],
+            'product_name': result['product_name'],
+            'notes': result['notes'],
+            'created_at': result['created_at']
         })
 
     return {
@@ -458,7 +511,7 @@ def get_all_keys(page=1, per_page=100, filters=None):
     }
 
 def get_key_types():
-    conn = sqlite3.connect(DATABASE)
+    conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('''
     SELECT name, duration_days, description, price, is_available 
@@ -471,17 +524,17 @@ def get_key_types():
     key_types = []
     for result in results:
         key_types.append({
-            'name': result[0],
-            'duration_days': result[1],
-            'description': result[2],
-            'price': result[3],
-            'is_available': bool(result[4])
+            'name': result['name'],
+            'duration_days': result['duration_days'],
+            'description': result['description'],
+            'price': result['price'],
+            'is_available': bool(result['is_available'])
         })
 
     return key_types
 
 def get_customers():
-    conn = sqlite3.connect(DATABASE)
+    conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('''
     SELECT 
@@ -500,17 +553,17 @@ def get_customers():
     customers = []
     for result in results:
         customers.append({
-            'name': result[0],
-            'email': result[1],
-            'total_keys': result[2],
-            'active_keys': result[3],
-            'activated_keys': result[4]
+            'name': result['name'],
+            'email': result['email'],
+            'total_keys': result['total_keys'],
+            'active_keys': result['active_keys'],
+            'activated_keys': result['activated_keys']
         })
 
     return customers
 
 def get_products():
-    conn = sqlite3.connect(DATABASE)
+    conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('''
     SELECT 
@@ -528,19 +581,19 @@ def get_products():
 
     products = []
     for result in results:
-        key_types = result[4].split(',') if result[4] else []
+        key_types = result['key_types'].split(',') if result['key_types'] else []
         products.append({
-            'name': result[0],
-            'total_keys': result[1],
-            'active_keys': result[2],
-            'activated_keys': result[3],
+            'name': result['name'],
+            'total_keys': result['total_keys'],
+            'active_keys': result['active_keys'],
+            'activated_keys': result['activated_keys'],
             'key_types': key_types
         })
 
     return products
 
 def get_stats():
-    conn = sqlite3.connect(DATABASE)
+    conn = get_db_connection()
     cursor = conn.cursor()
 
     # Total keys
@@ -575,7 +628,7 @@ def get_stats():
     FROM activation_keys 
     GROUP BY key_type
     ''')
-    key_types_dist = {row[0]: row[1] for row in cursor.fetchall()}
+    key_types_dist = {row['key_type']: row['COUNT(*)'] for row in cursor.fetchall()}
 
     conn.close()
 
@@ -596,7 +649,9 @@ def health_check():
     return jsonify({
         'success': True,
         'message': 'ECertifPro API is running',
-        'timestamp': datetime.now().isoformat()
+        'timestamp': datetime.now().isoformat(),
+        'database_path': DATABASE,
+        'database_exists': os.path.exists(DATABASE)
     })
 
 @app.route('/api/key-types')
@@ -789,8 +844,15 @@ def export_keys():
 @app.route('/')
 def index():
     """Serve the admin dashboard"""
-    with open('admin_dashboard.html', 'r') as f:
-        return f.read()
+    try:
+        with open('admin_dashboard.html', 'r') as f:
+            return f.read()
+    except FileNotFoundError:
+        return jsonify({
+            'success': False,
+            'message': 'Admin dashboard not found',
+            'hint': 'Make sure admin_dashboard.html exists in the root directory'
+        }), 404
 
 @app.route('/demo')
 def demo():
@@ -799,13 +861,23 @@ def demo():
         with open('demo.html', 'r') as f:
             return f.read()
     except FileNotFoundError:
-        return jsonify({'message': 'Demo page not found'}), 404
+        return jsonify({
+            'success': False,
+            'message': 'Demo page not found',
+            'hint': 'Make sure demo.html exists in the root directory'
+        }), 404
 
 if __name__ == '__main__':
     print("Starting ECertifPro API Server...")
+    print(f"Database path: {DATABASE}")
 
-    # Initialize database
-    init_db()
+    # Initialize database with error handling
+    try:
+        init_db()
+        print("Database initialized successfully")
+    except Exception as e:
+        print(f"Failed to initialize database: {e}")
+        raise
 
     print("Access the demo at: http://localhost:5000")
     print("Health check: http://localhost:5000/api/health")
