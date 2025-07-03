@@ -10,8 +10,10 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import uuid
 from functools import wraps
 
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'fallback-secret-key')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///activation_keys.db')
+
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'hfXFDFdfdfdf5dg52fgfgfdkVCGFgkdf5'
 CORS(app)  # Enable CORS for all routes
 DATABASE = 'activation_keys.db'
 
